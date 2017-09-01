@@ -43,8 +43,7 @@ class model(nn.Module):
         )
         
         self.classOut = nn.Sequential(
-            nn.Linear(1024*int(self.fcsize*1*1), self.n_classes),
-            nn.LogSoftmax()
+            nn.Linear(1024*int(self.fcsize*1*1), self.n_classes)
         )
         
 

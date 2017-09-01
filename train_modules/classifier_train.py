@@ -18,30 +18,58 @@ class trainer(object):
         else:
             self.classes = None
         
-    def iteration(self, model, param, crit, dataProvider, opt):
-        gpu_id = opt.gpu_ids[0]
-
-        rand_inds_encD = np.random.permutation(opt.ndat)
-        inds = rand_inds_encD[0:opt.batch_size]
+    def get_sample(self, dp, ndat, batch_size, train_or_test='train'):
+        rand_inds_encD = np.random.permutation(ndat)
+        inds = rand_inds_encD[0:batch_size]
         
-        self.x.data.copy_(dataProvider.get_images(inds,'train'))
+        self.x.data.copy_(dp.get_images(inds,train_or_test))
         x = self.x
         
-        self.classes.data.copy_(dataProvider.get_classes(inds,'train'))
-        classes = self.classes
+        self.classes.data.copy_(dp.get_classes(inds,train_or_test))
+        target = self.classes
+        
+        return x, target
+    
+    def iteration(self, model, param, crit, dp, opt):
+        gpu_id = opt.gpu_ids[0]
+
+        x, target = self.get_sample(dp, opt.ndat, opt.batch_size, 'train')
 
         param.zero_grad()
             
         ## train the classifier
-        classes_pred = model(x)
+        target_pred = model(x)
 
-        pred_loss = crit(classes_pred, classes)
-        pred_loss.backward(retain_graph=True)        
+        pred_loss = crit(target_pred, target)
+        pred_loss.backward()        
         pred_loss = pred_loss.data[0]
-       
-        errors = (pred_loss,)
-        
-        param.step()
 
+        param.step()
+        
+        _, indices = torch.max(target_pred, 1)
+        acc = (indices == target).double().mean().data[0]
+        
+        errors = (pred_loss, acc, )
         return errors
     
+    def evaluate(self, model, crit, dp, opt):
+        model.train(False)
+        
+        
+        x, target = self.get_sample(dp, dp.get_n_dat('test'), opt.batch_size,'test')
+        x.volatile=True
+        
+        target_pred = model(x)
+
+        pred_loss = crit(target_pred, target)     
+        pred_loss = pred_loss.data[0]
+        
+        _, indices = torch.max(target_pred, 1)
+        
+        acc = (indices == target).double().mean().data[0]
+        
+        x.volatile=False
+        model.train(False)
+        
+        errors = (pred_loss, acc, )
+        return errors

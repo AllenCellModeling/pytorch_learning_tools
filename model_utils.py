@@ -59,10 +59,15 @@ def load_model(model_provider, opt):
     elif opt.optimizer == 'adam':
         param = optim.Adam(model.parameters(), lr=opt.lr, betas=(0.5, 0.999))
     
-    columns = ('epoch', 'iter', 'loss', 'time')
-    print_str = '[%d][%d] pred_loss: %.6f time: %.2f'
-    
+    columns = ('epoch', 'iter', 'train_loss', 'train_acc', 'loss_eval', 'acc_eval', 'time')
+    print_str = '[%d][%d] train_loss: %.6f train_acc: %.4f test_loss: %.6f test_acc: %.4f time: %.2f'
+  
     logger = SimpleLogger.SimpleLogger(columns,  print_str)
+    
+#     columns = ('epoch', 'iter', 'loss', 'acc', 'time')
+#     print_str = '[%d][%d] pred_loss: %.6f accuracy: %.4f time: %.2f'
+  
+#     logger_eval = SimpleLogger.SimpleLogger(columns,  print_str)
 
     this_epoch = 1
     iteration = 0
@@ -76,6 +81,8 @@ def load_model(model_provider, opt):
         param.state = set_gpu_recursive(param.state, gpu_id)
         
         logger = pickle.load(open( '{0}/logger.pkl'.format(opt.save_dir), "rb" ))
+        
+        # logger_eval = pickle.load(open( '{0}/logger_eval.pkl'.format(opt.save_dir), "rb" ))
 
         this_epoch = max(logger.log['epoch']) + 1
         iteration = max(logger.log['iter'])
@@ -87,9 +94,9 @@ def load_model(model_provider, opt):
     
     criterions = dict()
     if opt.n_classes > 0:
-        criterions['crit'] = nn.NLLLoss()
+        criterions['crit'] = nn.CrossEntropyLoss()
     else:
-        criterions['crit'] = nn.BCELoss()
+        criterions['crit'] = nn.BCEWithLogitsLoss()
  
     return models, optimizers, criterions, logger, opt
 
@@ -170,7 +177,7 @@ def save_progress(logger, opt):
     plt.savefig('{0}/history_short.png'.format(opt.save_dir), bbox_inches='tight')
     plt.close()
     
-def save_state(model, param, logger, opt):
+def save_state(model, param, logger, logger_eval, opt):
 #         for saving and loading see:
 #         https://discuss.pytorch.org/t/how-to-save-load-torch-models/718
   
@@ -187,4 +194,5 @@ def save_state(model, param, logger, opt):
     param.state = set_gpu_recursive(param.state, gpu_id)
 
     pickle.dump(logger, open('./{0}/logger.pkl'.format(opt.save_dir), 'wb'))
+    # pickle.dump(logger_eval, open('./{0}/logger_eval.pkl'.format(opt.save_dir), 'wb'))    
    

@@ -46,7 +46,7 @@ parser.add_argument('--ndat', type=int, default=-1, help='Number of data points 
 parser.add_argument('--optimizer', default='adam', help='type of optimizer, can be {adam, RMSprop}')
 parser.add_argument('--train_module', default='classifier_train', help='training module')
 
-parser.add_argument('--channels', nargs='+', type=int, default=[0,2], help='channels to use for part 1')
+parser.add_argument('--channels', nargs='+', type=int, default=[0,1,2], help='channels to use for part 1')
 
 parser.add_argument('--data_save_path', default='./data/data.pyt', help='Save path for the dataprovider object')
 parser.add_argument('--data_provider', default='DataProvider3Dh5', help='Dataprovider object')
@@ -122,15 +122,16 @@ for this_iter in range(start_iter, math.ceil(iters_per_epoch)*opt.nepochs):
     
     start = time.time()
 
-    errors = train_module.iteration(**models, **optimizers, **criterions, dataProvider=dp, opt=opt)
+    errors = train_module.iteration(**models, **optimizers, **criterions, dp=dp, opt=opt)
+    
+    errors_eval = train_module.evaluate(**models, **criterions, dp=dp, opt=opt)
     
     stop = time.time()
     deltaT = stop-start
     
-    logger.add((epoch, this_iter) + errors +(deltaT,))
+    logger.add((epoch, this_iter) + errors + errors_eval + (deltaT,))
     
-    if maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt):
-        zAll = list()
+    maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt)
 
 #######
 ### DONE TRAINING CLASSIFIER MODEL
