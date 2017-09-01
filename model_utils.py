@@ -47,7 +47,7 @@ def weights_init(m):
         
 
 def load_model(model_provider, opt):
-    model = model_provider.model(opt.nlatentdim, opt.nClasses, opt.nRef, opt.imsize, opt.nch, opt.gpu_ids, opt)
+    model = model_provider.model(opt.n_classes, opt.nch, opt.gpu_ids, opt)
     model.apply(weights_init)
 
     gpu_id = opt.gpu_ids[0]
@@ -55,11 +55,11 @@ def load_model(model_provider, opt):
     model.cuda(gpu_id)
     
     if opt.optimizer == 'RMSprop':
-        param = optim.RMSprop(model.parameters(), lr=opt.lrEnc)
+        param = optim.RMSprop(model.parameters(), lr=opt.lr)
     elif opt.optimizer == 'adam':
-        param = optim.Adam(model.parameters(), lr=opt.lrEnc, betas=(0.5, 0.999))
+        param = optim.Adam(model.parameters(), lr=opt.lr, betas=(0.5, 0.999))
     
-    columns = ('epoch', 'iter', 'pred_loss', 'time')
+    columns = ('epoch', 'iter', 'loss', 'time')
     print_str = '[%d][%d] pred_loss: %.6f time: %.2f'
     
     logger = SimpleLogger.SimpleLogger(columns,  print_str)
@@ -85,7 +85,8 @@ def load_model(model_provider, opt):
     optimizers = dict()
     optimizers['param'] = param
     
-    if opt.nClasses > 0:
+    criterions = dict()
+    if opt.n_classes > 0:
         criterions['crit'] = nn.NLLLoss()
     else:
         criterions['crit'] = nn.BCELoss()
@@ -94,15 +95,13 @@ def load_model(model_provider, opt):
 
 def maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt):
     saved = False
-    if epoch != epoch_next and ((epoch_next % opt.saveProgressIter) == 0 or (epoch_next % opt.saveStateIter) == 0):
+    if epoch != epoch_next and ((epoch_next % opt.save_progress_iter) == 0 or (epoch_next % opt.save_state_iter) == 0):
 
-        zAll = torch.cat(zAll,0).cpu().numpy()
-
-        if (epoch_next % opt.saveProgressIter) == 0:
+        if (epoch_next % opt.save_progress_iter) == 0:
             print('saving progress')
             save_progress(logger, opt)
 
-        if (epoch_next % opt.saveStateIter) == 0:
+        if (epoch_next % opt.save_state_iter) == 0:
             print('saving state')
             save_state(**models, **optimizers, logger=logger, opt=opt)
 
@@ -128,7 +127,7 @@ def save_progress(logger, opt):
     plt.close()
 
     ### Short History
-    history = int(len(logger.log['epoch'])/2)
+    history = int(len(logger.log['epoch'])/2) - 1
     
     if history > 10000:
         history = 10000
@@ -161,6 +160,7 @@ def save_progress(logger, opt):
     plt.figure()
     plt.plot(x, y, label='loss')
     plt.plot(epoch_iters, epoch_losses, color='darkorange', label='epoch avg')
+    
     plt.plot([np.min(iters), np.max(iters)], [mval, mval], color='darkorange', linestyle=':', label='window avg')
 
     plt.legend()

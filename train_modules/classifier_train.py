@@ -13,7 +13,7 @@ class trainer(object):
         
         self.x = Variable(dp.get_images(range(0, opt.batch_size),'train').cuda(gpu_id))
         
-        if opt.nClasses > 0:
+        if opt.n_classes > 0:
             self.classes = Variable(torch.LongTensor(opt.batch_size)).cuda(gpu_id)
         else:
             self.classes = None
@@ -40,6 +40,8 @@ class trainer(object):
         pred_loss = pred_loss.data[0]
        
         errors = (pred_loss,)
+        
+        param.step()
 
         return errors
     

@@ -19,40 +19,36 @@ class model(nn.Module):
             nn.Conv3d(nch, 64, ksize, dstep, 1),
             nn.BatchNorm3d(64),
         
-            nn.PReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv3d(64, 128, ksize, dstep, 1),
             nn.BatchNorm3d(128),
         
-            nn.PReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv3d(128, 256, ksize, dstep, 1),
             nn.BatchNorm3d(256),
             
-            nn.PReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv3d(256, 512, ksize, dstep, 1),
             nn.BatchNorm3d(512),
             
-            nn.PReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv3d(512, 1024, ksize, dstep, 1),
             nn.BatchNorm3d(1024),
             
-            nn.PReLU(),
+            nn.ReLU(inplace=True),
             nn.Conv3d(1024, 1024, ksize, dstep, 1),
             nn.BatchNorm3d(1024),
         
-            nn.PReLU()
+            nn.ReLU(inplace=True),
         )
         
         self.classOut = nn.Sequential(
             nn.Linear(1024*int(self.fcsize*1*1), self.n_classes),
-            # nn.BatchNorm1d(self.nClasses),
             nn.LogSoftmax()
         )
         
 
-            
     def forward(self, x):
-        # gpu_ids = None
-        # if isinstance(x.data, torch.cuda.FloatTensor) and len(self.gpu_ids) > 1:
         gpu_ids = self.gpu_ids
             
         x = nn.parallel.data_parallel(self.main, x, gpu_ids)

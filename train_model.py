@@ -22,7 +22,7 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 from IPython import display
 import time
-from model_utils import set_gpu_recursive, load_model, save_state, save_progress, get_latent_embeddings, maybe_save
+from model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
 
 import torch.backends.cudnn as cudnn
 cudnn.benchmark = True
@@ -39,26 +39,23 @@ parser.add_argument('--nepochs', type=int, default=250, help='total number of ep
 
 parser.add_argument('--model_name', default='deep_conv', help='name of the model module')
 parser.add_argument('--save_dir', default='./test_classifier/deep_conv/', help='save dir')
-parser.add_argument('--saveProgressIter', type=int, default=1, help='number of iterations between saving progress')
-parser.add_argument('--saveStateIter', type=int, default=10, help='number of iterations between saving progress')
-parser.add_argument('--imsize', type=int, default=128, help='pixel size of images used')   
-parser.add_argument('--imdir', default='/root/data/release_4_1_17/results_v2/aligned/2D', help='location of images')
+parser.add_argument('--save_progress_iter', type=int, default=1, help='number of iterations between saving progress')
+parser.add_argument('--save_state_iter', type=int, default=10, help='number of iterations between saving progress')
+
 parser.add_argument('--ndat', type=int, default=-1, help='Number of data points to use')
 parser.add_argument('--optimizer', default='adam', help='type of optimizer, can be {adam, RMSprop}')
-parser.add_argument('--train_module', default='waaegan_train', help='training module')
-parser.add_argument('--dataProvider', default='DataProvider', help='Dataprovider object')
+parser.add_argument('--train_module', default='classifier_train', help='training module')
+
 parser.add_argument('--channels', nargs='+', type=int, default=[0,2], help='channels to use for part 1')
 
-parser.add_argument('--dtype', default='float', help='data type that the dataprovider uses. Only \'float\' supported.')
-
-parser.add_argument('--data_save_path', './data.pyt', help='Save path for the dataprovider object')
+parser.add_argument('--data_save_path', default='./data/data.pyt', help='Save path for the dataprovider object')
+parser.add_argument('--data_provider', default='DataProvider3Dh5', help='Dataprovider object')
+parser.add_argument('--data_dir', default='/root/data/release_4_1_17/results_v2/aligned/2D', help='location of images')
 
 opt = parser.parse_args()
 print(opt)
 
-opt.save_parent = opt.save_dir
-
-DP = importlib.import_module("data_providers." + opt.dataProvider)
+DP = importlib.import_module("data_providers." + opt.data_provider)
 model_provider = importlib.import_module("models." + opt.model_name)
 train_module = importlib.import_module("train_modules." + opt.train_module)
 
@@ -69,21 +66,18 @@ np.random.seed(opt.myseed)
 if not os.path.exists(opt.save_dir):
     os.makedirs(opt.save_dir)
     
-if opt.nepochs_pt2 == -1:
-    opt.nepochs_pt2 = opt.nepochs
-
 pickle.dump(opt, open('./{0}/opt.pkl'.format(opt.save_dir), 'wb'))
 
-opts = {}
-opts['verbose'] = True
-opts['pattern'] = '*.tif_flat.png'
-opts['out_size'] = [opt.imsize, opt.imsize]
-opts['dtype'] = opt.dtype
 
 if os.path.exists(opt.data_save_path):
     dp = torch.load(opt.data_save_path)
 else:
-    dp = DP.DataProvider(opt.imdir, opts=opts)
+    data_save_dir = os.path.dirname(opt.data_save_path)
+    if not os.path.exists(data_save_dir):
+        os.makedirs(data_save_dir)
+    
+    dp = DP.DataProvider(opt.data_dir)
+    
     torch.save(dp, opt.data_save_path)
     
 if opt.ndat == -1:
@@ -95,7 +89,6 @@ iters_per_epoch = np.ceil(opt.ndat/opt.batch_size)
 ### TRAIN CLASSIFIER
 #######
 
-opt.save_dir = opt.save_parent + os.sep
 if not os.path.exists(opt.save_dir):
     os.makedirs(opt.save_dir)
 
@@ -103,7 +96,7 @@ opt.channelInds = opt.channels
 dp.opts['channelInds'] = opt.channels
 opt.nch = len(opt.channelInds)
         
-opt.nClasses = dp.get_n_classes()
+opt.n_classes = dp.get_n_classes()
 
 try:    
     train_module = train_module.trainer(dp, opt)
@@ -113,6 +106,11 @@ except:
 pickle.dump(opt, open('./{0}/opt.pkl'.format(opt.save_dir), 'wb'))
 
 models, optimizers, criterions, logger, opt = load_model(model_provider, opt)
+
+#######    
+### MAIN LOOP
+#######
+
 
 start_iter = len(logger.log['iter'])
 zAll = list()
