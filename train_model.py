@@ -44,7 +44,7 @@ parser.add_argument('--save_state_iter', type=int, default=10, help='number of i
 
 parser.add_argument('--ndat', type=int, default=-1, help='Number of data points to use')
 parser.add_argument('--optimizer', default='adam', help='type of optimizer, can be {adam, RMSprop}')
-parser.add_argument('--train_module', default='classifier_train', help='training module')
+parser.add_argument('--train_module', default='train_single_target', help='training module')
 
 parser.add_argument('--channels', nargs='+', type=int, default=[0,1,2], help='channels to use for part 1')
 
@@ -66,9 +66,10 @@ np.random.seed(opt.myseed)
 if not os.path.exists(opt.save_dir):
     os.makedirs(opt.save_dir)
     
-pickle.dump(opt, open('./{0}/opt.pkl'.format(opt.save_dir), 'wb'))
-
-
+#######    
+### GET DATA PROVIDER
+#######    
+    
 if os.path.exists(opt.data_save_path):
     dp = torch.load(opt.data_save_path)
 else:
@@ -77,7 +78,6 @@ else:
         os.makedirs(data_save_dir)
     
     dp = DP.DataProvider(opt.data_dir)
-    
     torch.save(dp, opt.data_save_path)
     
 if opt.ndat == -1:
@@ -89,19 +89,15 @@ iters_per_epoch = np.ceil(opt.ndat/opt.batch_size)
 ### TRAIN CLASSIFIER
 #######
 
-if not os.path.exists(opt.save_dir):
-    os.makedirs(opt.save_dir)
-
 opt.channelInds = opt.channels
 dp.opts['channelInds'] = opt.channels
-opt.nch = len(opt.channelInds)
+opt.nch = len(opt.channels)
         
 opt.n_classes = dp.get_n_classes()
 
-try:    
-    train_module = train_module.trainer(dp, opt)
-except:
-    pass    
+
+train_module = train_module.trainer(dp, opt)
+
 
 pickle.dump(opt, open('./{0}/opt.pkl'.format(opt.save_dir), 'wb'))
 

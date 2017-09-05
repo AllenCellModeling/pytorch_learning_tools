@@ -50,13 +50,14 @@ class trainer(object):
         acc = (indices == target).double().mean().data[0]
         
         errors = (pred_loss, acc, )
-        return errors
+        
+        return errors, target, target_pred
     
-    def evaluate(self, model, crit, dp, opt):
+    def evaluate(self, model, crit, dp, train_or_test='test', opt):
         model.train(False)
         
         
-        x, target = self.get_sample(dp, dp.get_n_dat('test'), opt.batch_size,'test')
+        x, target = self.get_sample(dp, dp.get_n_dat(train_or_test), opt.batch_size, train_or_test)
         x.volatile=True
         
         target_pred = model(x)

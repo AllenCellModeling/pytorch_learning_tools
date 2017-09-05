@@ -139,17 +139,17 @@ def save_progress(logger, opt):
     if history > 10000:
         history = 10000
     
-    ydat = [logger.log['loss']]
+    ydat = [logger.log['train_loss']]
     ymin = np.min(ydat)
     ymax = np.max(ydat)
     plt.ylim([ymin, ymax])
 
     x = logger.log['iter'][-history:]
-    y = logger.log['loss'][-history:]
+    y = logger.log['train_loss'][-history:]
 
-    epochs = np.floor(np.array(logger.log['epoch'][-history:-1]))
-    losses = np.array(logger.log['loss'][-history:-1])
-    iters = np.array(logger.log['iter'][-history:-1])
+    epochs = np.floor(np.array(logger.log['epoch'][-history:]))
+    losses = np.array(logger.log['train_loss'][-history:])
+    iters = np.array(logger.log['iter'][-history:])
     uepochs = np.unique(epochs)
 
     epoch_losses = np.zeros(len(uepochs))
@@ -177,7 +177,9 @@ def save_progress(logger, opt):
     plt.savefig('{0}/history_short.png'.format(opt.save_dir), bbox_inches='tight')
     plt.close()
     
-def save_state(model, param, logger, logger_eval, opt):
+    pickle.dump(logger, open('./{0}/logger_tmp.pkl'.format(opt.save_dir), 'wb'))
+    
+def save_state(model, param, logger, opt):
 #         for saving and loading see:
 #         https://discuss.pytorch.org/t/how-to-save-load-torch-models/718
   
