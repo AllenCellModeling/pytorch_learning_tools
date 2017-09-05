@@ -17,13 +17,11 @@ if _version_extra:
 
 __version__ = '.'.join(map(str, _ver))
 
-CLASSIFIERS = ["Development Status :: 3 - Alpha",
-               "Environment :: Console",
-               "Intended Audience :: Science/Research",
-               "License :: OSI Approved :: MIT License",
-               "Operating System :: OS Independent",
-               "Programming Language :: Python",
-               "Topic :: Scientific/Engineering"]
+CLASSIFIERS = [
+    "Development Status :: 3 - Alpha", "Environment :: Console", "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License", "Operating System :: OS Independent", "Programming Language :: Python",
+    "Topic :: Scientific/Engineering"
+]
 
 # Description should be a one-liner:
 description = "pytorch_learning_tools: tools for pytorch-based machine learning projects"
@@ -61,4 +59,3 @@ MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {'pytorch_learning_tools': [pjoin('data', '*')]}
 REQUIRES = ["numpy", "scipy", "torch", "matplotlib", "Ipython", "natsort", "PIL", "h5py", "tqdm", "aicsimage"]
-
