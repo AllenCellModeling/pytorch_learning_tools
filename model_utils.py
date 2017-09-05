@@ -15,12 +15,14 @@ from imgToProjection import imgtoprojection
 
 import pdb
 
+
 def init_opts(opt, opt_default):
     vars_default = vars(opt_default)
     for var in vars_default:
         if not hasattr(opt, var):
             setattr(opt, var, getattr(opt_default, var))
     return opt
+
 
 def set_gpu_recursive(var, gpu_id):
     for key in var:
@@ -34,7 +36,7 @@ def set_gpu_recursive(var, gpu_id):
                     var[key] = var[key].cpu()
             except:
                 pass
-    return var  
+    return var
 
 
 def weights_init(m):
@@ -43,62 +45,63 @@ def weights_init(m):
         m.weight.data.normal_(0.0, 0.02)
     elif classname.find('BatchNorm') != -1:
         m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)    
-        
+        m.bias.data.fill_(0)
+
 
 def load_model(model_provider, opt):
     model = model_provider.model(opt.n_classes, opt.nch, opt.gpu_ids, opt)
     model.apply(weights_init)
 
     gpu_id = opt.gpu_ids[0]
-    
+
     model.cuda(gpu_id)
-    
+
     if opt.optimizer == 'RMSprop':
         param = optim.RMSprop(model.parameters(), lr=opt.lr)
     elif opt.optimizer == 'adam':
         param = optim.Adam(model.parameters(), lr=opt.lr, betas=(0.5, 0.999))
-    
+
     columns = ('epoch', 'iter', 'train_loss', 'train_acc', 'loss_eval', 'acc_eval', 'time')
     print_str = '[%d][%d] train_loss: %.6f train_acc: %.4f test_loss: %.6f test_acc: %.4f time: %.2f'
-  
-    logger = SimpleLogger.SimpleLogger(columns,  print_str)
-    
-#     columns = ('epoch', 'iter', 'loss', 'acc', 'time')
-#     print_str = '[%d][%d] pred_loss: %.6f accuracy: %.4f time: %.2f'
-  
-#     logger_eval = SimpleLogger.SimpleLogger(columns,  print_str)
+
+    logger = SimpleLogger.SimpleLogger(columns, print_str)
+
+    #     columns = ('epoch', 'iter', 'loss', 'acc', 'time')
+    #     print_str = '[%d][%d] pred_loss: %.6f accuracy: %.4f time: %.2f'
+
+    #     logger_eval = SimpleLogger.SimpleLogger(columns,  print_str)
 
     this_epoch = 1
     iteration = 0
     if os.path.exists('./{0}/model.pth'.format(opt.save_dir)):
         print('Loading from ' + opt.save_dir)
-        
+
         model.load_state_dict(torch.load('./{0}/model.pth'.format(opt.save_dir)))
         model.cuda(gpu_id)
-        
+
         param.load_state_dict(torch.load('./{0}/param.pth'.format(opt.save_dir)))
         param.state = set_gpu_recursive(param.state, gpu_id)
-        
-        logger = pickle.load(open( '{0}/logger.pkl'.format(opt.save_dir), "rb" ))
-        
+
+        logger = pickle.load(open('{0}/logger.pkl'.format(opt.save_dir), "rb"))
+
         # logger_eval = pickle.load(open( '{0}/logger_eval.pkl'.format(opt.save_dir), "rb" ))
 
         this_epoch = max(logger.log['epoch']) + 1
         iteration = max(logger.log['iter'])
 
     models = {'model': model}
-    
+
     optimizers = dict()
     optimizers['param'] = param
-    
+
     criterions = dict()
     if opt.n_classes > 0:
         criterions['crit'] = nn.CrossEntropyLoss()
     else:
         criterions['crit'] = nn.BCEWithLogitsLoss()
- 
+
     return models, optimizers, criterions, logger, opt
+
 
 def maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt):
     saved = False
@@ -113,16 +116,16 @@ def maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt):
             save_state(**models, **optimizers, logger=logger, opt=opt)
 
         saved = True
-        
+
     return saved
-            
+
 
 def save_progress(logger, opt):
-    
+
     ### History
     plt.figure()
 
-    for i in range(2, len(logger.fields)-1):
+    for i in range(2, len(logger.fields) - 1):
         field = logger.fields[i]
         plt.plot(logger.log['iter'], logger.log[field], label=field)
 
@@ -134,11 +137,11 @@ def save_progress(logger, opt):
     plt.close()
 
     ### Short History
-    history = int(len(logger.log['epoch'])/2) - 1
-    
+    history = int(len(logger.log['epoch']) / 2) - 1
+
     if history > 10000:
         history = 10000
-    
+
     ydat = [logger.log['train_loss']]
     ymin = np.min(ydat)
     ymax = np.max(ydat)
@@ -160,14 +163,14 @@ def save_progress(logger, opt):
         loss = np.mean(losses[inds])
         epoch_losses[i] = loss
         epoch_iters[i] = np.mean(iters[inds])
-        i+=1
+        i += 1
 
     mval = np.mean(losses)
 
     plt.figure()
     plt.plot(x, y, label='loss')
     plt.plot(epoch_iters, epoch_losses, color='darkorange', label='epoch avg')
-    
+
     plt.plot([np.min(iters), np.max(iters)], [mval, mval], color='darkorange', linestyle=':', label='window avg')
 
     plt.legend()
@@ -176,15 +179,16 @@ def save_progress(logger, opt):
     plt.ylabel('loss')
     plt.savefig('{0}/history_short.png'.format(opt.save_dir), bbox_inches='tight')
     plt.close()
-    
+
     pickle.dump(logger, open('./{0}/logger_tmp.pkl'.format(opt.save_dir), 'wb'))
-    
+
+
 def save_state(model, param, logger, opt):
-#         for saving and loading see:
-#         https://discuss.pytorch.org/t/how-to-save-load-torch-models/718
-  
+    #         for saving and loading see:
+    #         https://discuss.pytorch.org/t/how-to-save-load-torch-models/718
+
     gpu_id = opt.gpu_ids[0]
-    
+
     model = model.cpu()
 
     param.state = set_gpu_recursive(param.state, -1)
@@ -196,5 +200,4 @@ def save_state(model, param, logger, opt):
     param.state = set_gpu_recursive(param.state, gpu_id)
 
     pickle.dump(logger, open('./{0}/logger.pkl'.format(opt.save_dir), 'wb'))
-    # pickle.dump(logger_eval, open('./{0}/logger_eval.pkl'.format(opt.save_dir), 'wb'))    
-   
+    # pickle.dump(logger_eval, open('./{0}/logger_eval.pkl'.format(opt.save_dir), 'wb'))

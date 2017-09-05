@@ -46,7 +46,7 @@ parser.add_argument('--ndat', type=int, default=-1, help='Number of data points 
 parser.add_argument('--optimizer', default='adam', help='type of optimizer, can be {adam, RMSprop}')
 parser.add_argument('--train_module', default='train_single_target', help='training module')
 
-parser.add_argument('--channels', nargs='+', type=int, default=[0,1,2], help='channels to use for part 1')
+parser.add_argument('--channels', nargs='+', type=int, default=[0, 1, 2], help='channels to use for part 1')
 
 parser.add_argument('--data_save_path', default='./data/data.pyt', help='Save path for the dataprovider object')
 parser.add_argument('--data_provider', default='DataProvider3Dh5', help='Dataprovider object')
@@ -65,72 +65,67 @@ np.random.seed(opt.myseed)
 
 if not os.path.exists(opt.save_dir):
     os.makedirs(opt.save_dir)
-    
-#######    
+
+#######
 ### GET DATA PROVIDER
-#######    
-    
+#######
+
 if os.path.exists(opt.data_save_path):
     dp = torch.load(opt.data_save_path)
 else:
     data_save_dir = os.path.dirname(opt.data_save_path)
     if not os.path.exists(data_save_dir):
         os.makedirs(data_save_dir)
-    
+
     dp = DP.DataProvider(opt.data_dir)
     torch.save(dp, opt.data_save_path)
-    
-if opt.ndat == -1:
-    opt.ndat = dp.get_n_dat('train')    
 
-iters_per_epoch = np.ceil(opt.ndat/opt.batch_size)    
-            
-#######    
+if opt.ndat == -1:
+    opt.ndat = dp.get_n_dat('train')
+
+iters_per_epoch = np.ceil(opt.ndat / opt.batch_size)
+
+#######
 ### TRAIN CLASSIFIER
 #######
 
 opt.channelInds = opt.channels
 dp.opts['channelInds'] = opt.channels
 opt.nch = len(opt.channels)
-        
+
 opt.n_classes = dp.get_n_classes()
 
-
 train_module = train_module.trainer(dp, opt)
-
 
 pickle.dump(opt, open('./{0}/opt.pkl'.format(opt.save_dir), 'wb'))
 
 models, optimizers, criterions, logger, opt = load_model(model_provider, opt)
 
-#######    
+#######
 ### MAIN LOOP
 #######
 
-
 start_iter = len(logger.log['iter'])
 zAll = list()
-for this_iter in range(start_iter, math.ceil(iters_per_epoch)*opt.nepochs):
+for this_iter in range(start_iter, math.ceil(iters_per_epoch) * opt.nepochs):
     opt.iter = this_iter
-    
-    epoch = np.floor(this_iter/iters_per_epoch)
-    epoch_next = np.floor((this_iter+1)/iters_per_epoch)
-    
+
+    epoch = np.floor(this_iter / iters_per_epoch)
+    epoch_next = np.floor((this_iter + 1) / iters_per_epoch)
+
     start = time.time()
 
     errors = train_module.iteration(**models, **optimizers, **criterions, dp=dp, opt=opt)
-    
+
     errors_eval = train_module.evaluate(**models, **criterions, dp=dp, opt=opt)
-    
+
     stop = time.time()
-    deltaT = stop-start
-    
+    deltaT = stop - start
+
     logger.add((epoch, this_iter) + errors + errors_eval + (deltaT,))
-    
+
     maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt)
 
 #######
 ### DONE TRAINING CLASSIFIER MODEL
 #######
-
-

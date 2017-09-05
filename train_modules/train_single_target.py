@@ -7,70 +7,74 @@ import pdb
 
 
 class trainer(object):
+
     def __init__(self, dp, opt):
-        
+
         gpu_id = opt.gpu_ids[0]
-        
-        self.x = Variable(dp.get_images(range(0, opt.batch_size),'train').cuda(gpu_id))
-        
+
+        self.x = Variable(dp.get_images(range(0, opt.batch_size), 'train').cuda(gpu_id))
+
         if opt.n_classes > 0:
             self.classes = Variable(torch.LongTensor(opt.batch_size)).cuda(gpu_id)
         else:
             self.classes = None
-        
+
     def get_sample(self, dp, ndat, batch_size, train_or_test='train'):
         rand_inds_encD = np.random.permutation(ndat)
         inds = rand_inds_encD[0:batch_size]
-        
-        self.x.data.copy_(dp.get_images(inds,train_or_test))
+
+        self.x.data.copy_(dp.get_images(inds, train_or_test))
         x = self.x
-        
-        self.classes.data.copy_(dp.get_classes(inds,train_or_test))
+
+        self.classes.data.copy_(dp.get_classes(inds, train_or_test))
         target = self.classes
-        
+
         return x, target
-    
+
     def iteration(self, model, param, crit, dp, opt):
         gpu_id = opt.gpu_ids[0]
 
         x, target = self.get_sample(dp, opt.ndat, opt.batch_size, 'train')
 
         param.zero_grad()
-            
+
         ## train the classifier
         target_pred = model(x)
 
         pred_loss = crit(target_pred, target)
-        pred_loss.backward()        
+        pred_loss.backward()
         pred_loss = pred_loss.data[0]
 
         param.step()
-        
+
         _, indices = torch.max(target_pred, 1)
         acc = (indices == target).double().mean().data[0]
-        
-        errors = (pred_loss, acc, )
-        
+
+        errors = (
+            pred_loss,
+            acc,)
+
         return errors, target, target_pred
-    
+
     def evaluate(self, model, crit, dp, train_or_test='test', opt):
         model.train(False)
-        
-        
+
         x, target = self.get_sample(dp, dp.get_n_dat(train_or_test), opt.batch_size, train_or_test)
-        x.volatile=True
-        
+        x.volatile = True
+
         target_pred = model(x)
 
-        pred_loss = crit(target_pred, target)     
+        pred_loss = crit(target_pred, target)
         pred_loss = pred_loss.data[0]
-        
+
         _, indices = torch.max(target_pred, 1)
-        
+
         acc = (indices == target).double().mean().data[0]
-        
-        x.volatile=False
+
+        x.volatile = False
         model.train(False)
-        
-        errors = (pred_loss, acc, )
+
+        errors = (
+            pred_loss,
+            acc,)
         return errors

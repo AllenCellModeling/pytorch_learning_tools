@@ -18,7 +18,12 @@ def matproj(im, dim, method='max', slice_index=0):
     return im
 
 
-def imgtoprojection(im1, proj_all=False, proj_method='max', colors=lambda i: [1, 1, 1], global_adjust=False, local_adjust=False):
+def imgtoprojection(im1,
+                    proj_all=False,
+                    proj_method='max',
+                    colors=lambda i: [1, 1, 1],
+                    global_adjust=False,
+                    local_adjust=False):
     """
     Outputs projections of a 4d CZYX numpy array into a CYX numpy array, allowing for color masks for each input channel
     as well as adjustment options
@@ -90,8 +95,7 @@ def imgtoprojection(im1, proj_all=False, proj_method='max', colors=lambda i: [1,
                 # proj_y = np.flipud(proj_y)
                 proj_x = np.transpose(proj_x, (1, 0))
                 proj_y = np.flipud(proj_y)
-                
-                
+
                 sx, sy, sz = proj_z.shape[1], proj_z.shape[0], proj_y.shape[0]
                 img_piece[:, :sy, :sz] = proj_x
                 img_piece[:, :sy, sz:] = proj_z
