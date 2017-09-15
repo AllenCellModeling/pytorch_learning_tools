@@ -2,6 +2,7 @@ import os
 import h5py
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
@@ -40,7 +41,21 @@ class csvDataset(Dataset):
                                               5: bright-field
             transform (callable, optional): Optional transform to be applied on a sample.
         """
-        self.df = pd.read_csv(os.path.join(root_dir,csv_file_name))
+
+        df = pd.read_csv(os.path.join(root_dir,csv_file_name))
+
+        # check that all files we need are present in the df
+        good_rows = []
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc='scanning files'):
+            data_path = os.path.join(root_dir, df.ix[idx, data_path_col])
+            if os.path.isfile(data_path):
+                good_rows += [idx]
+        print('dropping {0} rows out of {1} from {2}'.format(len(df)-len(good_rows), len(df), csv_file_name))
+        df = df.iloc[good_rows]
+        df = df.reset_index()
+
+        # save all the instantiation options and junk into the Dataset object
+        self.df = df
         self.root_dir = root_dir
         self.data_path_col = data_path_col
         self.target_col = target_col
@@ -48,7 +63,6 @@ class csvDataset(Dataset):
         self.data_type = data_type
         self.channel_inds = channel_inds
         self.transform = transform
-
 
     def __len__(self):
         return len(self.df)
