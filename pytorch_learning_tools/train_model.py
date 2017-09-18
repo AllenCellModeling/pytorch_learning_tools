@@ -1,6 +1,6 @@
 import argparse
 
-import SimpleLogger as SimpleLogger
+from .SimpleLogger import SimpleLogger
 
 import importlib
 import numpy as np
@@ -22,7 +22,7 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 from IPython import display
 import time
-from model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
+from .model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
 
 import torch.backends.cudnn as cudnn
 cudnn.benchmark = True
