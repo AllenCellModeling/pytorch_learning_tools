@@ -95,18 +95,18 @@ class csvDataset(Dataset):
 
 def hashsplit(X, splits, salt=1, N=5):
     """
-    splits a list of items deterministically bashed on the hashes of the items
+    splits a list of items pseudorandomly (but deterministically) based on the hashes of the items
     Args:
-        X (list): list of items to be split up into seperate sublists
+        X (list): list of items to be split into non-overlapping groups
         splits = (dict): dict of {name:weight} pairs definiting the desired split
         salt (string): str(salt) is appended to each list item before hashing
         N (int): number of significant figures to compute for binning each list item
     Returns:
-        dict of {name:sublists} for all names in the input split dict
+        dict of {name:indices} for all names in the input split dict
     Example:
-        >>> hashsplit(list(range(20)), {'train':0.7,'test':0.3}, salt=3, N=8)
-        {'test': [0, 5, 11, 13, 18],
-         'train': [1, 2, 3, 4, 6, 7, 8, 9, 10, 12, 14, 15, 16, 17, 19]}
+        >>> hashsplit(list("allen cell institute"), {'train':0.7,'test':0.3}, salt=3, N=8) 
+        {'test': [4, 12, 17],
+        'train': [0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 18, 19]}
     """
 
     # normalize the weights, just in case
@@ -117,10 +117,10 @@ def hashsplit(X, splits, salt=1, N=5):
     bins = {k: [bounds[i], bounds[i + 1]] for i, (k, v) in enumerate(sorted(splits.items()))}
 
     # hash the strings deterministically
-    hashes = [hashlib.sha512((str(i) + str(salt)).encode('utf-8')).hexdigest() for i in X]
+    hashes = [hashlib.sha512((str(x) + str(salt)).encode('utf-8')).hexdigest() for x in X]
 
     # create some numbers in [0,1] (at N sig figs) from the hashes
-    nums = np.array([float("".join([c for c in h if c.isdigit()][:N])) / 10**N for h in hashes])
+    nums = np.array([float("".join(filter(str.isdigit, h))[:N]) / 10**N for h in hashes])
 
     # check where the nums fall in [0,1] relative to the bins left and right boundaries
     inds = {k: np.where((nums > l) & (nums <= r)) for k, (l, r) in bins.items()}
