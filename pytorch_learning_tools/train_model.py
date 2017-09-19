@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import pickle
 import time
@@ -14,8 +16,8 @@ import torchvision.utils
 import torch.backends.cudnn as cudnn
 cudnn.benchmark = True
 
-from .SimpleLogger import SimpleLogger
-from .model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
+from pytorch_learning_tools.SimpleLogger import SimpleLogger
+from pytorch_learning_tools.model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
 
 import fire
 
@@ -122,5 +124,5 @@ def train_model(gpu_ids=0,
 # if called from the command line, args are `--argname argvalue` style.
 # call with no args for help/info.
 if __name__ == "__main__":
-    fire.Fire(check_csv_column_contents)
+    fire.Fire(train_model)
 
