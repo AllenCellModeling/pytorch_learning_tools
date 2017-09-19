@@ -1,7 +1,6 @@
 from torch import nn
 import torch
-import pdb
-from model_utils import init_opts
+from utils.model_utils import init_opts
 
 ksize = 4
 dstep = 2
