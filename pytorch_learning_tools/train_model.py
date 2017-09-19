@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 
 import SimpleLogger as SimpleLogger
@@ -22,7 +24,7 @@ mpl.use('Agg')
 import matplotlib.pyplot as plt
 from IPython import display
 import time
-from model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
+from utils.model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
 
 import torch.backends.cudnn as cudnn
 cudnn.benchmark = True
@@ -115,13 +117,14 @@ for this_iter in range(start_iter, math.ceil(iters_per_epoch) * opt.nepochs):
 
     start = time.time()
 
-    errors = train_module.iteration(**models, **optimizers, **criterions, dp=dp, opt=opt)
+    errors, target, target_pred = train_module.iteration(**models, **optimizers, **criterions, dp=dp, opt=opt)
 
-    errors_eval = train_module.evaluate(**models, **criterions, dp=dp, opt=opt)
+    errors_eval = train_module.evaluate(**models, **criterions, dp=dp, opt=opt, train_or_test='test')
 
     stop = time.time()
     deltaT = stop - start
 
+    
     logger.add((epoch, this_iter) + errors + errors_eval + (deltaT,))
 
     maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt)
