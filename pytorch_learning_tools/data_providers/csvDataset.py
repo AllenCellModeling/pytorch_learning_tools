@@ -93,7 +93,7 @@ class csvDataset(Dataset):
         return sample
 
 
-def hashsplit(X, splits, salt=1, N=5):
+def hashsplit(X, splits={'train': 0.8, 'test': 0.2}, salt=1, N=5):
     """
     splits a list of items pseudorandomly (but deterministically) based on the hashes of the items
     Args:
