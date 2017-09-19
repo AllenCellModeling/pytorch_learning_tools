@@ -31,12 +31,12 @@ class trainer(object):
 
         return x, target
 
-    def iteration(self, model, param, crit, dp, opt):
+    def iteration(self, model, optimizer, crit, dp, opt):
         gpu_id = opt.gpu_ids[0]
 
         x, target = self.get_sample(dp, opt.ndat, opt.batch_size, 'train')
 
-        param.zero_grad()
+        optimizer.zero_grad()
 
         ## train the classifier
         target_pred = model(x)
@@ -45,7 +45,7 @@ class trainer(object):
         pred_loss.backward()
         pred_loss = pred_loss.data[0]
 
-        param.step()
+        optimizer.step()
 
         _, indices = torch.max(target_pred, 1)
         acc = (indices == target).double().mean().data[0]
@@ -56,7 +56,7 @@ class trainer(object):
 
         return errors, target, target_pred
 
-    def evaluate(self, model, crit, dp, train_or_test='test', opt):
+    def evaluate(self, model, crit, dp, opt, train_or_test='test'):
         model.train(False)
 
         x, target = self.get_sample(dp, dp.get_n_dat(train_or_test), opt.batch_size, train_or_test)
@@ -72,7 +72,7 @@ class trainer(object):
         acc = (indices == target).double().mean().data[0]
 
         x.volatile = False
-        model.train(False)
+        model.train(True)
 
         errors = (
             pred_loss,
