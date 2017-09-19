@@ -6,7 +6,7 @@ export PYTHONPATH=$code_dir:$PYTHONPATH
 export PATH=$code_dir:$PATH
 
 train_model.py \
-    --gpu_ids 2 \
+    --gpu_ids [2] \
     --batch_size 50 \
     --nepochs 50 \
     --lr 5E-4 \

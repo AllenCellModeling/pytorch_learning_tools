@@ -5,6 +5,6 @@ mpl.use('Agg')
 
 from .SimpleLogger import *
 from .imgToProjection import *
-from .model_utils import *
+from .utils.model_utils import *
 from .train_model import *
 # from .version import __version__

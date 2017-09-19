@@ -15,7 +15,7 @@ def plot_error(logger, opt, close_fig=False, history=10000):
     plt.title('History')
     plt.xlabel('iteration')
     plt.ylabel('loss')
-    # plt.savefig('{0}/history.png'.format(opt.save_dir), bbox_inches='tight')
+    # plt.savefig('{0}/history.png'.format(opt['save_dir']), bbox_inches='tight')
     # plt.close()
 
     ### Short History
@@ -61,6 +61,6 @@ def plot_error(logger, opt, close_fig=False, history=10000):
     plt.title('Short history')
     plt.xlabel('iteration')
     plt.ylabel('loss')
-    plt.savefig('{0}/history.png'.format(opt.save_dir), bbox_inches='tight')
+    plt.savefig('{0}/history.png'.format(opt['save_dir']), bbox_inches='tight')
     if close_fig:
         plt.close()

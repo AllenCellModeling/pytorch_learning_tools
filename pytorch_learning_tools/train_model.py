@@ -17,12 +17,12 @@ import torch.backends.cudnn as cudnn
 cudnn.benchmark = True
 
 from pytorch_learning_tools.SimpleLogger import SimpleLogger
-from pytorch_learning_tools.model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
+from pytorch_learning_tools.utils.model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
 
 import fire
 
 
-def train_model(gpu_ids=0,
+def train_model(gpu_ids=[0],
                 myseed=0,
                 lr=0.0005,
                 batch_size=64,
@@ -41,7 +41,7 @@ def train_model(gpu_ids=0,
     """
     Trains a pytorch model.
     Args:
-        gpu_ids (int) default=0: gpu id
+        gpu_ids (list) default=[0]: gpu ids to use
         myseed (int) default=0: random seed
         lr (float) default=0.0005: learning rate
         batch_size (int) default=64: batch size
@@ -60,7 +60,7 @@ def train_model(gpu_ids=0,
     """
 
     # use this for pickling the options passed in if desired at some point
-    arg_dict = locals()
+    opt = locals()
 
     DP = importlib.import_module("data_providers." + data_provider)
     model_provider = importlib.import_module("models." + model_name)
@@ -93,8 +93,10 @@ def train_model(gpu_ids=0,
     channelInds = channels
     dp.opts['channelInds'] = channels
     nch = len(channels)
+    opt['nch'] = nch
 
     n_classes = dp.get_n_classes()
+    opt['n_classes'] = n_classes
 
     train_module = train_module.trainer(dp, opt)
 
@@ -125,4 +127,3 @@ def train_model(gpu_ids=0,
 # call with no args for help/info.
 if __name__ == "__main__":
     fire.Fire(train_model)
-
