@@ -1,134 +1,126 @@
-#!/usr/bin/env python
-
-import argparse
-
-import SimpleLogger as SimpleLogger
-
-import importlib
-import numpy as np
-
 import os
 import pickle
-
+import time
 import math
+import importlib
+
+import numpy as np
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 import torchvision.utils
-
-#have to do this import to be able to use pyplot in the docker image
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
-from IPython import display
-import time
-from utils.model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
-
 import torch.backends.cudnn as cudnn
 cudnn.benchmark = True
 
-import pdb
+from .SimpleLogger import SimpleLogger
+from .model_utils import set_gpu_recursive, load_model, save_state, save_progress, maybe_save
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--gpu_ids', nargs='+', type=int, default=0, help='gpu id')
-parser.add_argument('--myseed', type=int, default=0, help='random seed')
-parser.add_argument('--lr', type=float, default=0.0005, help='learning rate')
+import fire
 
-parser.add_argument('--batch_size', type=int, default=64, help='batch size')
-parser.add_argument('--nepochs', type=int, default=250, help='total number of epochs')
 
-parser.add_argument('--model_name', default='deep_conv', help='name of the model module')
-parser.add_argument('--save_dir', default='./test_classifier/deep_conv/', help='save dir')
-parser.add_argument('--save_progress_iter', type=int, default=1, help='number of iterations between saving progress')
-parser.add_argument('--save_state_iter', type=int, default=10, help='number of iterations between saving progress')
+def train_model(gpu_ids=0,
+                myseed=0,
+                lr=0.0005,
+                batch_size=64,
+                nepochs=250,
+                model_name='deep_conv',
+                save_dir='./test_classifier/deep_conv/',
+                save_progress_iter=1,
+                save_state_iter=10,
+                ndat=-1,
+                optimizer='adam',
+                train_module='train_single_target',
+                channels=[0, 1, 2],
+                data_save_path='./data/data.pyt',
+                data_provider='DataProvider3Dh5',
+                data_dir='/root/data/release_4_1_17/results_v2/aligned/2D'):
+    """
+    Trains a pytorch model.
+    Args:
+        gpu_ids (int) default=0: gpu id
+        myseed (int) default=0: random seed
+        lr (float) default=0.0005: learning rate
+        batch_size (int) default=64: batch size
+        nepochs (int) default=250: total number of epochs
+        model_name' (string) default='deep_conv': name of the model module
+        save_dir' (string) default='./test_classifier/deep_conv/': save dir
+        save_progress_iter (int) default=1: number of iterations between saving progress
+        save_state_iter (int) default=10: number of iterations between saving progress
+        ndat (int) default=-1: Number of data points to use
+        optimizer (string) default='adam': type of optimizer, can be {adam, RMSprop}
+        train_module (string) default='train_single_target': training module
+        channels' (list) default=[0, 1, 2]: channels to use for part 1
+        data_save_path (string) default='./data/data.pyt': Save path for the dataprovider object
+        data_provider (string) default='DataProvider3Dh5': Dataprovider object
+        data_dir (string) default='/root/data/release_4_1_17/results_v2/aligned/2D': location of images
+    """
 
-parser.add_argument('--ndat', type=int, default=-1, help='Number of data points to use')
-parser.add_argument('--optimizer', default='adam', help='type of optimizer, can be {adam, RMSprop}')
-parser.add_argument('--train_module', default='train_single_target', help='training module')
+    # use this for pickling the options passed in if desired at some point
+    arg_dict = locals()
 
-parser.add_argument('--channels', nargs='+', type=int, default=[0, 1, 2], help='channels to use for part 1')
+    DP = importlib.import_module("data_providers." + data_provider)
+    model_provider = importlib.import_module("models." + model_name)
+    train_module = importlib.import_module("train_modules." + train_module)
 
-parser.add_argument('--data_save_path', default='./data/data.pyt', help='Save path for the dataprovider object')
-parser.add_argument('--data_provider', default='DataProvider3Dh5', help='Dataprovider object')
-parser.add_argument('--data_dir', default='/root/data/release_4_1_17/results_v2/aligned/2D', help='location of images')
+    torch.manual_seed(myseed)
+    torch.cuda.manual_seed(myseed)
+    np.random.seed(myseed)
 
-opt = parser.parse_args()
-print(opt)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
-DP = importlib.import_module("data_providers." + opt.data_provider)
-model_provider = importlib.import_module("models." + opt.model_name)
-train_module = importlib.import_module("train_modules." + opt.train_module)
+    # GET DATA PROVIDER
+    if os.path.exists(data_save_path):
+        dp = torch.load(data_save_path)
+    else:
+        data_save_dir = os.path.dirname(data_save_path)
+        if not os.path.exists(data_save_dir):
+            os.makedirs(data_save_dir)
 
-torch.manual_seed(opt.myseed)
-torch.cuda.manual_seed(opt.myseed)
-np.random.seed(opt.myseed)
+        dp = DP.DataProvider(data_dir)
+        torch.save(dp, data_save_path)
 
-if not os.path.exists(opt.save_dir):
-    os.makedirs(opt.save_dir)
+    if ndat == -1:
+        ndat = dp.get_n_dat('train')
 
-#######
-### GET DATA PROVIDER
-#######
+    iters_per_epoch = np.ceil(ndat / batch_size)
 
-if os.path.exists(opt.data_save_path):
-    dp = torch.load(opt.data_save_path)
-else:
-    data_save_dir = os.path.dirname(opt.data_save_path)
-    if not os.path.exists(data_save_dir):
-        os.makedirs(data_save_dir)
+    # TRAIN CLASSIFIER
+    channelInds = channels
+    dp.opts['channelInds'] = channels
+    nch = len(channels)
 
-    dp = DP.DataProvider(opt.data_dir)
-    torch.save(dp, opt.data_save_path)
+    n_classes = dp.get_n_classes()
 
-if opt.ndat == -1:
-    opt.ndat = dp.get_n_dat('train')
+    train_module = train_module.trainer(dp, opt)
 
-iters_per_epoch = np.ceil(opt.ndat / opt.batch_size)
+    models, optimizers, criterions, logger, opt = load_model(model_provider, opt)
 
-#######
-### TRAIN CLASSIFIER
-#######
+    # MAIN LOOP
+    start_iter = len(logger.log['iter'])
+    zAll = list()
+    for this_iter in range(start_iter, math.ceil(iters_per_epoch) * nepochs):
+        iter = this_iter
 
-opt.channelInds = opt.channels
-dp.opts['channelInds'] = opt.channels
-opt.nch = len(opt.channels)
+        epoch = np.floor(this_iter / iters_per_epoch)
+        epoch_next = np.floor((this_iter + 1) / iters_per_epoch)
 
-opt.n_classes = dp.get_n_classes()
+        start = time.time()
 
-train_module = train_module.trainer(dp, opt)
+        errors = train_module.iteration(**models, **optimizers, **criterions, dp=dp, opt=opt)
+        errors_eval = train_module.evaluate(**models, **criterions, dp=dp, opt=opt)
 
-pickle.dump(opt, open('./{0}/opt.pkl'.format(opt.save_dir), 'wb'))
+        stop = time.time()
+        deltaT = stop - start
 
-models, optimizers, criterions, logger, opt = load_model(model_provider, opt)
+        logger.add((epoch, this_iter) + errors + errors_eval + (deltaT,))
+        maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt)
 
-#######
-### MAIN LOOP
-#######
 
-start_iter = len(logger.log['iter'])
-zAll = list()
-for this_iter in range(start_iter, math.ceil(iters_per_epoch) * opt.nepochs):
-    opt.iter = this_iter
+# if called from the command line, args are `--argname argvalue` style.
+# call with no args for help/info.
+if __name__ == "__main__":
+    fire.Fire(check_csv_column_contents)
 
-    epoch = np.floor(this_iter / iters_per_epoch)
-    epoch_next = np.floor((this_iter + 1) / iters_per_epoch)
-
-    start = time.time()
-
-    errors, target, target_pred = train_module.iteration(**models, **optimizers, **criterions, dp=dp, opt=opt)
-
-    errors_eval = train_module.evaluate(**models, **criterions, dp=dp, opt=opt, train_or_test='test')
-
-    stop = time.time()
-    deltaT = stop - start
-
-    
-    logger.add((epoch, this_iter) + errors + errors_eval + (deltaT,))
-
-    maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt)
-
-#######
-### DONE TRAINING CLASSIFIER MODEL
-#######
