@@ -93,7 +93,8 @@ def load_model(model_provider, opt):
 
 def maybe_save(epoch, epoch_next, models, optimizers, logger, dp, opt):
     saved = False
-    if epoch != epoch_next and ((epoch_next % opt['save_progress_iter']) == 0 or (epoch_next % opt['save_state_iter']) == 0):
+    if epoch != epoch_next and ((epoch_next % opt['save_progress_iter']) == 0 or
+                                (epoch_next % opt['save_state_iter']) == 0):
 
         if (epoch_next % opt['save_progress_iter']) == 0:
             print('saving progress')
@@ -122,8 +123,7 @@ def save_state(model, optimizer, logger, opt):
 
     optimizer.state = set_gpu_recursive(optimizer.state, -1)
 
-    checkpoint = {'model': model.state_dict(),
-                  'optimizer': optimizer.state_dict()}
+    checkpoint = {'model': model.state_dict(), 'optimizer': optimizer.state_dict()}
 
     torch.save(checkpoint, './{0}/model.pth'.format(opt['save_dir']))
     # torch.save(param.state_dict(), './{0}/param.pth'.format(opt['save_dir']))

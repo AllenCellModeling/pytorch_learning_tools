@@ -86,6 +86,7 @@ def train_model(gpu_ids=[0],
 
     if ndat == -1:
         ndat = dp.get_n_dat('train')
+    opt['ndat'] = ndat
 
     iters_per_epoch = np.ceil(ndat / batch_size)
 
@@ -112,8 +113,7 @@ def train_model(gpu_ids=[0],
         epoch_next = np.floor((this_iter + 1) / iters_per_epoch)
 
         start = time.time()
-
-        errors = train_module.iteration(**models, **optimizers, **criterions, dp=dp, opt=opt)
+        errors, target, target_pred = train_module.iteration(**models, **optimizers, **criterions, dp=dp, opt=opt)
         errors_eval = train_module.evaluate(**models, **criterions, dp=dp, opt=opt)
 
         stop = time.time()

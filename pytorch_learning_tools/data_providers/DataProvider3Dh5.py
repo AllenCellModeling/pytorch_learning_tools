@@ -192,12 +192,9 @@ class DataProvider(DataProviderABC):
 
     def get_images(self, inds_tt, train_or_test):
         dims = list(self.imsize)
-
         dims[0] = len(self.opts['channelInds'])
         dims.insert(0, len(inds_tt))
-
         inds_master = self.data[train_or_test]['inds'][inds_tt]
-
         images = torch.zeros(tuple(dims))
 
         for i, (rownum, row) in enumerate(self.csv_data.iloc[inds_master].iterrows()):
