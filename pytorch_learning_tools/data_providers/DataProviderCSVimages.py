@@ -7,6 +7,9 @@ from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 
+from ..utils.hashsplit import hashsplit
+from .DataProviderABC import DataProviderABC
+
 
 def eight_bit_to_float(im, dtype=np.uint8):
     imax = np.iinfo(dtype).max  # imax = 255 for uint8
@@ -25,18 +28,18 @@ class csvDataset(Dataset):
     """csv Dataset."""
 
     def __init__(self,
-                 csv_file_name,
                  root_dir,
-                 data_path_col,
-                 target_col,
-                 unique_id_col,
+                 csv_name='data_jobs_out.csv',
+                 data_path_col='save_h5_reg_path',
+                 target_col='structureProteinName',
+                 unique_id_col='save_h5_reg_path',
                  data_type='hdf5',
                  channel_inds=(3, 4, 2),
                  transform=None):
         """
         Args:
-            csv_file_name (string): csv file with annotations, just the base name, not the full path.
-            root_dir = (string): full path to the directory containing csv_file_name.
+            csv_name (string): csv file with annotations, just the base name, not the full path.
+            root_dir = (string): full path to the directory containing csv_name.
             data_path_col (string): column name in csv file containing the paths to the files to be used as input data.
             target_col (string): column name in the csv file containing the data to be used as prediction targets (no paths).
             unique_id_col (string):
@@ -50,7 +53,7 @@ class csvDataset(Dataset):
             transform (callable, optional): Optional transform to be applied on a sample.
         """
 
-        df = pd.read_csv(os.path.join(root_dir, csv_file_name))
+        df = pd.read_csv(os.path.join(root_dir, csv_name))
 
         # check that all files we need are present in the df
         good_rows = []
@@ -58,7 +61,7 @@ class csvDataset(Dataset):
             data_path = os.path.join(root_dir, df.ix[idx, data_path_col])
             if os.path.isfile(data_path):
                 good_rows += [idx]
-        print('dropping {0} rows out of {1} from {2}'.format(len(df) - len(good_rows), len(df), csv_file_name))
+        print('dropping {0} rows out of {1} from {2}'.format(len(df) - len(good_rows), len(df), csv_name))
         df = df.iloc[good_rows]
         df = df.reset_index()
 
@@ -92,38 +95,54 @@ class csvDataset(Dataset):
 
         return sample
 
+    
+class DataProvider(DataProviderABC):
 
-def hashsplit(X, splits={'train': 0.8, 'test': 0.2}, salt=1, N=5):
-    """
-    splits a list of items pseudorandomly (but deterministically) based on the hashes of the items
-    Args:
-        X (list): list of items to be split into non-overlapping groups
-        splits = (dict): dict of {name:weight} pairs definiting the desired split
-        salt (string): str(salt) is appended to each list item before hashing
-        N (int): number of significant figures to compute for binning each list item
-    Returns:
-        dict of {name:indices} for all names in the input split dict
-    Example:
-        >>> hashsplit(list("allen cell institute"), {'train':0.7,'test':0.3}, salt=3, N=8) 
-        {'test': [4, 12, 17],
-        'train': [0, 1, 2, 3, 5, 6, 7, 8, 9, 10, 11, 13, 14, 15, 16, 18, 19]}
-    """
+    def __init__(self,
+                 root_dir,
+                 csv_name='data_jobs_out.csv',
+                 data_path_col='save_h5_reg_path',
+                 target_col='structureProteinName',
+                 unique_id_col='save_h5_reg_path',
+                 channel_inds=(3, 4, 2),
+                 splits={'train': 0.8, 'test': 0.2},
+                 split_seed=1,
+                 data_type='hdf5',
+                 transform=None):
 
-    # normalize the weights, just in case
-    splits = {k: v / sum(splits.values()) for k, v in splits.items()}
+        opts = locals()
+        opts.pop('self')
+        self.opts = opts
 
-    # determine bins in [0,1] that correspond to each split
-    bounds = np.cumsum([0.0] + [v for k, v in sorted(splits.items())])
-    bins = {k: [bounds[i], bounds[i + 1]] for i, (k, v) in enumerate(sorted(splits.items()))}
+        # load up all the data, before splitting it
+        self.data = csvDataset(root_dir,
+                               csv_name=csv_name,
+                               data_path_col=data_path_col,
+                               target_col=target_col,
+                               unique_id_col=unique_id_col,
+                               data_type=data_type,
+                               channel_inds=channel_inds,
+                               transform=transform)
+        
+        
+        # split the data into the different sets: test, train, valid, whatever
+        split_inds = hashsplit(self.data.df[self.data.unique_id_col],
+                           splits=splits,
+                           salt=split_seed)
+        self.split_inds=split_inds
+        
+        
+    def get_len(self, split):
+        pass
 
-    # hash the strings deterministically
-    hashes = [hashlib.sha512((str(x) + str(salt)).encode('utf-8')).hexdigest() for x in X]
+    def get_unique_targets(self):
+        pass
 
-    # create some numbers in [0,1] (at N sig figs) from the hashes
-    nums = np.array([float("".join(filter(str.isdigit, h))[:N]) / 10**N for h in hashes])
+    def get_data_paths(self, inds, split):
+        pass
 
-    # check where the nums fall in [0,1] relative to the bins left and right boundaries
-    inds = {k: np.where((nums > l) & (nums <= r)) for k, (l, r) in bins.items()}
+    def get_random_sample(self, N, split):
+        pass
 
-    # np.where returns a singleton tuple containing an np array, so convert to list
-    return {k: list(*v) for k, v in inds.items()}
+    def get_data_points(self, inds, split):
+        pass
