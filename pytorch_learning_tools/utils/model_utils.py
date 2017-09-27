@@ -1,7 +1,7 @@
 import torch
 import importlib
 import torch.optim as optim
-import SimpleLogger
+from ..SimpleLogger import SimpleLogger
 import os
 import torch.nn as nn
 from torch.autograd import Variable
@@ -11,7 +11,7 @@ import pickle
 import importlib
 
 import matplotlib.pyplot as plt
-from imgToProjection import imgtoprojection
+from ..imgToProjection import imgtoprojection
 
 import pdb
 
