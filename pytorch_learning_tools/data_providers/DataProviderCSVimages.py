@@ -5,7 +5,9 @@ import pandas as pd
 from tqdm import tqdm
 
 from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision import transforms, utils
+
 
 from ..utils.hashsplit import hashsplit
 from .DataProviderABC import DataProviderABC
@@ -127,16 +129,23 @@ class DataProvider(DataProviderABC):
         
         # split the data into the different sets: test, train, valid, whatever
         split_inds = hashsplit(self.data.df[self.data.unique_id_col],
-                           splits=splits,
-                           salt=split_seed)
+                               splits=splits,
+                               salt=split_seed)
         self.split_inds=split_inds
         
+        # create samplers to access only random samples from the appropriate indices
+        samplers = {}
+        for split,inds_in_split in self.split_inds.items():
+            samplers[split] = SubsetRandomSampler(inds_in_split)
+        self.samplers = samplers
         
+    # shouldn't be a get   
     def get_len(self, split):
-        pass
-
+        return len(self.split_inds[split])        
+    
+    # shouldn't be a get
     def get_unique_targets(self):
-        pass
+        pass 
 
     def get_data_paths(self, inds, split):
         pass
