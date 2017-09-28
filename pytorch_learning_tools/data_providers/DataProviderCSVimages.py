@@ -3,9 +3,10 @@ import h5py
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from random import sample
 
 from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data.sampler import Sampler, SubsetRandomSampler
 from torchvision import transforms, utils
 
 
@@ -13,11 +14,11 @@ from ..utils.hashsplit import hashsplit
 from .DataProviderABC import DataProviderABC
 
 
+# these are a couple of utility functions that might be better stored elsewhere
 def eight_bit_to_float(im, dtype=np.uint8):
     imax = np.iinfo(dtype).max  # imax = 255 for uint8
     im = im / imax
     return im
-
 
 def load_h5(h5_path, channel_inds):
     f = h5py.File(h5_path, 'r')
@@ -26,6 +27,26 @@ def load_h5(h5_path, channel_inds):
     return image
 
 
+# modification of SubsetRandomSampler to remove randomness
+class SubsetSampler(Sampler):
+    """Samples elements sequentially, always in the same order
+       from a given list of indices, without replacement.
+
+    Arguments:
+        indices (list): a list of indices
+    """
+
+    def __init__(self, indices):
+        self.indices = indices
+
+    def __iter__(self):
+        return (self.indices[i] for i in len(self.indices))
+
+    def __len__(self):
+        return len(self.indices)
+    
+
+# this is a pytorch Dataset augmentation that the Dataprovider below will use
 class csvDataset(Dataset):
     """csv Dataset."""
 
@@ -97,19 +118,20 @@ class csvDataset(Dataset):
 
         return sample
 
-    
+# This is the csv-image dataprovider
 class DataProvider(DataProviderABC):
 
     def __init__(self,
                  root_dir,
+                 batch_size=32,
                  csv_name='data_jobs_out.csv',
                  data_path_col='save_h5_reg_path',
+                 data_type='hdf5',
                  target_col='structureProteinName',
                  unique_id_col='save_h5_reg_path',
                  channel_inds=(3, 4, 2),
                  splits={'train': 0.8, 'test': 0.2},
                  split_seed=1,
-                 data_type='hdf5',
                  transform=None):
 
         opts = locals()
@@ -133,25 +155,56 @@ class DataProvider(DataProviderABC):
                                salt=split_seed)
         self.split_inds=split_inds
         
-        # create samplers to access only random samples from the appropriate indices
+        # create random samplers to access only random samples from the appropriate indices
         samplers = {}
         for split,inds_in_split in self.split_inds.items():
             samplers[split] = SubsetRandomSampler(inds_in_split)
         self.samplers = samplers
         
-    # shouldn't be a get   
-    def get_len(self, split):
+        # create data loaders to efficiently iterate though the random samples
+        dataloaders = {}
+        for split, sampler in self.samplers.items():
+            dataloaders[split] = DataLoader(self.data,
+                                            batch_size=batch_size,
+                                            sampler=sampler,
+                                            num_workers=4, # TODO: make an option?
+                                            pin_memory=True) # TODO: make an option?
+        self.dataloaders = dataloaders
+        
+        # create determinisitic loaders to always sample ceratin inds --
+        # useful for inspecting training progress on the same images every time
+        # hard coded to sample the first few images
+        deterministic_samplers = {}
+        for split,inds_in_split in self.split_inds.items():
+            deterministic_samplers[split] = SubsetSampler(sample(inds_in_split,batch_size))
+        self.deterministic_samplers = deterministic_samplers
+        
+        deterministic_dataloaders = {}
+        for split, deterministic_sampler in self.deterministic_samplers.items():
+            deterministic_dataloaders[split] = DataLoader(self.data,
+                                                          batch_size=batch_size,
+                                                          sampler=deterministic_sampler,
+                                                          num_workers=4, # TODO: make an option?
+                                                          pin_memory=True) # TODO: make an option?
+        self.deterministic_dataloaders = deterministic_dataloaders
+    
+    # This could really be a static attribute?
+    def data_len(self, split):
         return len(self.split_inds[split])        
     
-    # shouldn't be a get
-    def get_unique_targets(self):
-        pass 
+    # Same here
+    def target_cardinality(self):
+        return len(np.unique(self.data.df[self.data.target_col]))        
 
-    def get_data_paths(self, inds, split):
-        pass
-
-    def get_random_sample(self, N, split):
-        pass
-
+    # get_data_points is an inefficient way to interact with the data,
+    # mosty useful for inspecting good/bad predictions post-hoc.
+    # To efficiently iterate thoguh th data, use somthing like:
+    #
+    # for epoch in range(N_epochs):
+    #     for phase, dataloader in dp.dataloaders.items():
+    #         for i_minibatch, samples in enumerate(dataloader):
+    #             unique_ids_mb, data_mb, targets_mb = samples['unique_id'], sample['data'] ,samples['target']
+    #
     def get_data_points(self, inds, split):
-        pass
+        data = [self.data[i] for i in inds]
+        return data
