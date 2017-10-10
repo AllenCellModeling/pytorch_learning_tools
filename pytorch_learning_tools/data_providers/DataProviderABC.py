@@ -3,14 +3,20 @@ from abc import ABC, abstractmethod
 
 class DataProviderABC(ABC):
 
+    # which inds belong to which splits?
+    @property
     @abstractmethod
-    def data_len(self, split):
+    def splits(self):
+        pass
+    
+    # hoq many classes are we predicting?
+    @property
+    @abstractmethod
+    def unique_targets(self):
         pass
 
+    # get data using unique ids
+    # not how yoyu want to iterate over data but useful for inspection
     @abstractmethod
-    def target_cardinality(self):
-        pass
-
-    @abstractmethod
-    def get_data_points(self, inds, split):
+    def get_data_points(self, unique_ids):
         pass
