@@ -26,25 +26,6 @@ def load_h5(h5_path, channel_inds):
     return image
 
 
-# modification of PyTorch's SubsetRandomSampler to remove randomness
-class SubsetSampler(Sampler):
-    """Samples elements sequentially, always in the same order
-       from a given list of indices, without replacement.
-
-    Arguments:
-        indices (list): a list of indices
-    """
-
-    def __init__(self, indices):
-        self.indices = indices
-
-    def __iter__(self):
-        return iter(self.indices)
-
-    def __len__(self):
-        return len(self.indices)
-
-
 # this is an augmentation to PyTorch's Dataset class that our Dataprovider below will use
 class csvDataset(Dataset):
     """csv Dataset."""
@@ -128,8 +109,6 @@ class DataProvider(DataProviderABC):
                  channel_inds=(3, 4, 2),
                  split_fracs={'train': 0.8, 'test': 0.2},
                  split_seed=1,
-                 inspection_split='test',
-                 insection_data_size=16,
                  transform=None,
                  num_workers=4,
                  pin_memory=True):
@@ -150,8 +129,6 @@ class DataProvider(DataProviderABC):
                                               5: bright-field
             split_fracs (dict): names of splits desired, and fracion of data in each split
             split_seed (int): random seed/salt for splitting has function
-            inspection_split (string): set from which to draw inspectino data
-            insection_data_size (int): size of inspection data set
             transform (callable, optional): Optional transform to be applied on a sample.
             num_workers (int): number of cpu cores to use loading data
             pin_memory (Bool): should be True unless you're getting gpu memory errors
@@ -195,22 +172,6 @@ class DataProvider(DataProviderABC):
                                             pin_memory=pin_memory)
         self.dataloaders = dataloaders
         
-        # create determinisitic loaders to always sample ceratin inds --
-        # useful for inspecting training progress on the same images every time
-        # hard coded to sample the first few images
-        deterministic_samplers = {}
-        for split,inds_in_split in self._split_inds.items():
-            deterministic_samplers[split] = SubsetSampler(sample(inds_in_split,batch_size))
-        self._deterministic_samplers = deterministic_samplers
-        
-        deterministic_dataloaders = {}
-        for split, deterministic_sampler in self._deterministic_samplers.items():
-            deterministic_dataloaders[split] = DataLoader(self.dataset,
-                                                          batch_size=batch_size,
-                                                          sampler=deterministic_sampler,
-                                                          num_workers=4, # TODO: make an option?
-                                                          pin_memory=True) # TODO: make an option?
-        self._deterministic_dataloaders = deterministic_dataloaders
     
     @property
     def splits(self):
@@ -232,7 +193,3 @@ class DataProvider(DataProviderABC):
         df_inds = self.dataset.df.index[self.dataset.df[self.opts['unique_id_col']].isin(unique_ids)].tolist()
         data_points = [self.dataset[i] for i in df_inds]
         return data_points
-    
-    def get_inspection_data(self):
-        inpection_data = next(iter(self._deterministic_dataloaders[self.opts['inspection_split']]))
-        return inpection_data
