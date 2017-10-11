@@ -32,6 +32,12 @@ def load_rgb_img(img_path, channel_inds):
     with open(img_path, 'rb') as f:
         with Image.open(f) as img:
             return eight_bit_to_float(np.array(img.convert('RGB'))[:,:,channel_inds])
+        
+def load_greyscale_tiff(img_path):
+    # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
+    with open(img_path, 'rb') as f:
+        with Image.open(f) as img:
+            return eight_bit_to_float(np.array(img))
 
 
 # this is an augmentation to PyTorch's Dataset class that our Dataprovider below will use
@@ -44,6 +50,7 @@ class csvDataset(Dataset):
                  data_path_col='save_h5_reg_path',
                  data_type='hdf5',
                  target_col='structureProteinName',
+                 convert_target_to_string=True,
                  unique_id_col='save_h5_reg_path',
                  channel_inds=(3, 4, 2),
                  transform=None):
@@ -79,6 +86,10 @@ class csvDataset(Dataset):
         df = df.iloc[good_rows]
         df = df.reset_index()
 
+        # force conversion of target col content sto string if desired
+        if convert_target_to_string:
+            df[target_col] = df[target_col].astype(str)
+        
         # save df
         self.df = df
 
@@ -91,6 +102,8 @@ class csvDataset(Dataset):
             data = load_h5(data_path, self._opts['channel_inds'])
         elif self._opts['data_type'] in ['jpg','JPG','jpeg','JPEG','png','PNG','ppm','PPM','bmp','BMP']:
             data = load_rgb_img(data_path, self._opts['channel_inds'])
+        elif self._opts['data_type'] in ['tif', 'TIF', 'tiff', 'TIFF']:
+            data = load_greyscale_tiff(data_path)
         else:
             raise ValueError('data_type {} is not supported, only hdf5'.format(self.data_type))
 
@@ -115,6 +128,7 @@ class DataProvider(DataProviderABC):
                  data_path_col='save_h5_reg_path',
                  data_type='hdf5',
                  target_col='structureProteinName',
+                 convert_target_to_string=True,
                  unique_id_col='save_h5_reg_path',
                  channel_inds=(3, 4, 2),
                  split_fracs={'train': 0.8, 'test': 0.2},
@@ -128,8 +142,9 @@ class DataProvider(DataProviderABC):
             batch_size (int): minibatch size for iterating through dataset
             csv_name (string): csv file with annotations, just the base name, not the full path.
             data_path_col (string): column name in csv file containing the paths to the files to be used as input data.
-            data_type (string): hdf5, png, jpg, etc (only hdf5 and common image format support is implemented)
+            data_type (string): hdf5, png, jpg, tiff, etc (only hdf5 and common image format + tiff support is implemented)
             target_col (string): column name in the csv file containing the data to be used as prediction targets (no paths).
+            convert_target_to_string (bool): force conversion of target column contents to string type
             unique_id_col (string): which column in the csv file to use as a unique identifier for each data point
             channel_inds (tuple of integers): 0: cell segmentation
                                               1: nuclear segmentation
@@ -154,6 +169,7 @@ class DataProvider(DataProviderABC):
                                csv_name=csv_name,
                                data_path_col=data_path_col,
                                target_col=target_col,
+                               convert_target_to_string=convert_target_to_string,
                                unique_id_col=unique_id_col,
                                data_type=data_type,
                                channel_inds=channel_inds,
