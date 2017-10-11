@@ -150,7 +150,7 @@ class DataProvider(DataProviderABC):
         self.opts = opts
 
         # load up all the data, before splitting it -- the data gets checked in this call
-        self.dataset = csvDataset(root_dir,
+        self._dataset = csvDataset(root_dir,
                                csv_name=csv_name,
                                data_path_col=data_path_col,
                                target_col=target_col,
@@ -158,10 +158,10 @@ class DataProvider(DataProviderABC):
                                data_type=data_type,
                                channel_inds=channel_inds,
                                transform=transform)
-        
+        self.df = self._dataset.df
         
         # split the data into the different sets: test, train, valid, whatever
-        split_inds = hashsplit(self.dataset.df[self.opts['unique_id_col']],
+        split_inds = hashsplit(self.df[self.opts['unique_id_col']],
                                splits=split_fracs,
                                salt=split_seed)
         self._split_inds=split_inds
@@ -175,7 +175,7 @@ class DataProvider(DataProviderABC):
         # create data loaders to efficiently iterate though the random samples
         dataloaders = {}
         for split, sampler in self._samplers.items():
-            dataloaders[split] = DataLoader(self.dataset,
+            dataloaders[split] = DataLoader(self._dataset,
                                             batch_size=batch_size,
                                             sampler=sampler,
                                             num_workers=num_workers,
@@ -188,8 +188,8 @@ class DataProvider(DataProviderABC):
         return self._split_inds
     
     @property
-    def unique_targets(self):
-        return np.unique(self.dataset.df[self.opts['target_col']]).tolist()
+    def classes(self):
+        return np.unique(self.df[self.opts['target_col']]).tolist()
 
     # WARNING: get_data_points is an inefficient way to interact with the data,
     # mosty useful for inspecting good/bad predictions post-hoc.
@@ -200,6 +200,6 @@ class DataProvider(DataProviderABC):
     #         for i_mb,sample_mb in enumerate(dataloader):
     #             data_mb, targets_mb, unique_ids_mb = sample_mb['data'], sample_mb['target'], sample_mb['unique_id']
     def get_data_points(self, unique_ids):
-        df_inds = self.dataset.df.index[self.dataset.df[self.opts['unique_id_col']].isin(unique_ids)].tolist()
-        data_points = [self.dataset[i] for i in df_inds]
+        df_inds = self.df.index[self.df[self.opts['unique_id_col']].isin(unique_ids)].tolist()
+        data_points = [self._dataset[i] for i in df_inds]
         return data_points

@@ -12,7 +12,7 @@ class DataProviderABC(ABC):
     # hoq many classes are we predicting?
     @property
     @abstractmethod
-    def unique_targets(self):
+    def classes(self):
         pass
 
     # get data using unique ids
