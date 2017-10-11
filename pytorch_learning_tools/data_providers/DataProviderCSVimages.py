@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from random import sample
+from PIL import Image
 
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.sampler import Sampler, SubsetRandomSampler
@@ -14,16 +15,23 @@ from ..utils.hashsplit import hashsplit
 from .DataProviderABC import DataProviderABC
 
 
-# these are a couple of utility functions that might be better stored elsewhere
+# these are a few of utility functions that might be better stored elsewhere
 def eight_bit_to_float(im, dtype=np.uint8):
     imax = np.iinfo(dtype).max  # imax = 255 for uint8
     im = im / imax
     return im
+
 def load_h5(h5_path, channel_inds):
     f = h5py.File(h5_path, 'r')
     image = f['image'].value[channel_inds, ::]
     image = eight_bit_to_float(image)
     return image
+
+def load_rgb_img(img_path, channel_inds):
+    # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
+    with open(img_path, 'rb') as f:
+        with Image.open(f) as img:
+            return eight_bit_to_float(np.array(img.convert('RGB'))[:,:,channel_inds])
 
 
 # this is an augmentation to PyTorch's Dataset class that our Dataprovider below will use
@@ -81,6 +89,8 @@ class csvDataset(Dataset):
         data_path = os.path.join(self._opts['root_dir'], self.df.ix[idx, self._opts['data_path_col']])
         if self._opts['data_type'] == 'hdf5':
             data = load_h5(data_path, self._opts['channel_inds'])
+        elif self._opts['data_type'] in ['jpg','JPG','jpeg','JPEG','png','PNG','ppm','PPM','bmp','BMP']:
+            data = load_rgb_img(data_path, self._opts['channel_inds'])
         else:
             raise ValueError('data_type {} is not supported, only hdf5'.format(self.data_type))
 
@@ -118,7 +128,7 @@ class DataProvider(DataProviderABC):
             batch_size (int): minibatch size for iterating through dataset
             csv_name (string): csv file with annotations, just the base name, not the full path.
             data_path_col (string): column name in csv file containing the paths to the files to be used as input data.
-            data_type (string): hdf5, png, etc (only hdf5 support is implemented)
+            data_type (string): hdf5, png, jpg, etc (only hdf5 and common image format support is implemented)
             target_col (string): column name in the csv file containing the data to be used as prediction targets (no paths).
             unique_id_col (string): which column in the csv file to use as a unique identifier for each data point
             channel_inds (tuple of integers): 0: cell segmentation
