@@ -1,7 +1,7 @@
 import torch
 import importlib
 import torch.optim as optim
-from ..SimpleLogger import SimpleLogger
+from pytorch_learning_tools.SimpleLogger import SimpleLogger
 import os
 import torch.nn as nn
 from torch.autograd import Variable
@@ -11,7 +11,7 @@ import pickle
 import importlib
 
 import matplotlib.pyplot as plt
-from ..imgToProjection import imgtoprojection
+from pytorch_learning_tools.imgToProjection import imgtoprojection
 
 import pdb
 
@@ -64,7 +64,7 @@ def load_model(model_provider, opt):
     columns = ('epoch', 'iter', 'train_loss', 'train_acc', 'loss_eval', 'acc_eval', 'time')
     print_str = '[%d][%d] train_loss: %.6f train_acc: %.4f test_loss: %.6f test_acc: %.4f time: %.2f'
 
-    logger = SimpleLogger.SimpleLogger(columns, print_str)
+    logger = SimpleLogger(columns, print_str)
 
     if os.path.exists('{0}/model.pth'.format(opt['save_dir'])):
         print('Loading from ' + opt['save_dir'])
