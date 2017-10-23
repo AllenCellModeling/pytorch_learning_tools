@@ -3,22 +3,20 @@ from abc import ABC, abstractmethod
 
 class DataProviderABC(ABC):
 
+    # which inds belong to which splits?
+    @property
     @abstractmethod
-    def get_n_dat(self, train_or_test):
+    def splits(self):
+        pass
+    
+    # hoq many classes are we predicting?
+    @property
+    @abstractmethod
+    def classes(self):
         pass
 
+    # get data using unique ids
+    # not how yoyu want to iterate over data but useful for inspection
     @abstractmethod
-    def get_n_classes(self):
-        pass
-
-    @abstractmethod
-    def get_image_paths(self, inds, train_or_test):
-        pass
-
-    @abstractmethod
-    def get_images(self, inds, train_or_test):
-        pass
-
-    @abstractmethod
-    def get_classes(self, inds, train_or_test):
+    def get_data_points(self, unique_ids):
         pass
