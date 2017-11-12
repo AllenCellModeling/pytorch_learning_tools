@@ -58,4 +58,4 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {'pytorch_learning_tools': [pjoin('data', '*')]}
-REQUIRES = ["numpy", "scipy", "torch", "matplotlib", "Ipython", "natsort", "PIL", "h5py", "tqdm", "aicsimage"]
+REQUIRES = ["numpy", "scipy", "torch", "matplotlib", "Ipython", "natsort", "pillow", "h5py", "tqdm", "aicsimage"]
