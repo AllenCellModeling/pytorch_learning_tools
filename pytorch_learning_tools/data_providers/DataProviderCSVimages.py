@@ -60,7 +60,7 @@ class csvDataset(Dataset):
                  data_path_col='save_h5_reg_path',
                  data_type='hdf5',
                  data_as_image=False,
-		 target_col='structureProteinName',
+                 target_col='structureProteinName',
                  convert_target_to_string=True,
                  unique_id_col='save_h5_reg_path',
                  channel_inds=(3, 4, 2),
@@ -74,7 +74,7 @@ class csvDataset(Dataset):
             data_path_col (string): column name in csv file containing the paths to the files to be used as input data.
             data_type (string): hdf5, png, etc (only hdf5 support is implemented)
             data_as_image (bool): if True, return a pil image, if False, return a np array of floats
-	    target_col (string): column name in the csv file containing the data to be used as prediction targets (no paths).
+            target_col (string): column name in the csv file containing the data to be used as prediction targets (no paths).
             convert_target_to_string (bool): force conversion of target col to string
             unique_id_col (string): which column in the csv file to use as a unique identifier for each data point
             channel_inds (tuple of integers): 0: cell segmentation
@@ -102,7 +102,7 @@ class csvDataset(Dataset):
         df = df.iloc[good_rows]
         df = df.reset_index()
 
-        # force conversion of target col content sto string if desired
+        # force conversion of target col contents to string if desired
         if convert_target_to_string:
             df[target_col] = df[target_col].astype(str)
         
