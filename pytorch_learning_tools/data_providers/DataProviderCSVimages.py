@@ -27,17 +27,26 @@ def load_h5(h5_path, channel_inds):
     image = eight_bit_to_float(image)
     return image
 
-def load_rgb_img(img_path, channel_inds):
+def load_rgb_img(img_path, channel_inds, data_as_image=False):
     # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
     with open(img_path, 'rb') as f:
         with Image.open(f) as img:
-            return eight_bit_to_float(np.array(img.convert('RGB'))[:,:,channel_inds])
+            img_arr = np.array(img.convert('RGB'))
+            if data_as_image:
+                zero_channels = [i for i in range(3) if i not in channel_inds]
+                img_arr[:,:,zero_channels] = 0
+                return Image.fromarray(img_arr)
+            else:
+                return eight_bit_to_float(img_arr[:,:,channel_inds])
         
-def load_greyscale_tiff(img_path):
+def load_greyscale_tiff(img_path,data_as_image=False):
     # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
     with open(img_path, 'rb') as f:
         with Image.open(f) as img:
-            return eight_bit_to_float(np.array(img))
+            if data_as_image:
+                return img
+            else:
+                return eight_bit_to_float(np.array(img.convert('L')))
 
 
 # this is an augmentation to PyTorch's Dataset class that our Dataprovider below will use
@@ -45,22 +54,28 @@ class csvDataset(Dataset):
     """csv Dataset."""
 
     def __init__(self,
-                 root_dir,
+                 data_root_dir='/root/aics/modeling/gregj/results/ipp/ipp_17_12_03/',
+                 csv_root_dir = './',
                  csv_name='data_jobs_out.csv',
                  data_path_col='save_h5_reg_path',
                  data_type='hdf5',
-                 target_col='structureProteinName',
+                 data_as_image=False,
+		 target_col='structureProteinName',
                  convert_target_to_string=True,
                  unique_id_col='save_h5_reg_path',
                  channel_inds=(3, 4, 2),
-                 transform=None):
+                 transform=None,
+                 return_sample_as_dict=True):
         """
         Args:
-            root_dir = (string): full path to the directory containing csv_name.
+            data_root_dir = (string): full path to the directory containing all the images.
+            csv_root_dir = (string): full path to the directory containing csv_name
             csv_name (string): csv file with annotations, just the base name, not the full path.
             data_path_col (string): column name in csv file containing the paths to the files to be used as input data.
             data_type (string): hdf5, png, etc (only hdf5 support is implemented)
-            target_col (string): column name in the csv file containing the data to be used as prediction targets (no paths).
+            data_as_image (bool): if True, return a pil image, if False, return a np array of floats
+	    target_col (string): column name in the csv file containing the data to be used as prediction targets (no paths).
+            convert_target_to_string (bool): force conversion of target col to string
             unique_id_col (string): which column in the csv file to use as a unique identifier for each data point
             channel_inds (tuple of integers): 0: cell segmentation
                                               1: nuclear segmentation
@@ -69,17 +84,18 @@ class csvDataset(Dataset):
                                               4: structure channel
                                               5: bright-field
             transform (callable, optional): Optional transform to be applied on a sample.
+            return_sample_as_dict (bool) if true return data, target, unique_id as entries in a dict with those keys, else return a tuple
         """
         opts = locals()
         opts.pop('self')
         self._opts = opts
         
-        df = pd.read_csv(os.path.join(root_dir, csv_name))
+        df = pd.read_csv(os.path.join(csv_root_dir, csv_name))
 
         # check that all files we need are present in the df
         good_rows = []
         for idx, row in tqdm(df.iterrows(), total=len(df), desc='scanning files'):
-            data_path = os.path.join(root_dir, df.ix[idx, data_path_col])
+            data_path = os.path.join(data_root_dir, df.ix[idx, data_path_col])
             if os.path.isfile(data_path):
                 good_rows += [idx]
         print('dropping {0} rows out of {1} from {2}'.format(len(df) - len(good_rows), len(df), csv_name))
@@ -97,24 +113,29 @@ class csvDataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
-        data_path = os.path.join(self._opts['root_dir'], self.df.ix[idx, self._opts['data_path_col']])
+        data_path = os.path.join(self._opts['data_root_dir'], self.df.ix[idx, self._opts['data_path_col']])
         if self._opts['data_type'] == 'hdf5':
             data = load_h5(data_path, self._opts['channel_inds'])
         elif self._opts['data_type'] in ['jpg','JPG','jpeg','JPEG','png','PNG','ppm','PPM','bmp','BMP']:
-            data = load_rgb_img(data_path, self._opts['channel_inds'])
+            data = load_rgb_img(data_path, self._opts['channel_inds'], data_as_image=self._opts['data_as_image'])
         elif self._opts['data_type'] in ['tif', 'TIF', 'tiff', 'TIFF']:
-            data = load_greyscale_tiff(data_path)
+            data = load_greyscale_tiff(data_path, data_as_image=self._opts['data_as_image'])
         else:
-            raise ValueError('data_type {} is not supported, only hdf5'.format(self.data_type))
+            raise ValueError('data_type {} is not supported, only hdf5 and basic images'.format(self.data_type))
+
+        if self._opts['data_as_image']:
+            if self._opts['transform']:
+                trans = self._opts['transform']
+                data = trans(data)
 
         target = self.df.ix[idx, self._opts['target_col']]
         unique_id = self.df.ix[idx, self._opts['unique_id_col']]
 
-        sample = {'data': data, 'target': target, 'unique_id': unique_id}
-
-        if self._opts['transform']:
-            sample = self._opts['transform'](sample)
-
+        if self._opts['return_sample_as_dict']:
+            sample = {'data': data, 'target': target, 'unique_id': unique_id}
+        else:
+            sample = (data,target,unique_id)
+        
         return sample
 
     
@@ -122,11 +143,13 @@ class csvDataset(Dataset):
 class DataProvider(DataProviderABC):
     """csv dataprovider"""
     def __init__(self,
-                 root_dir,
+                 data_root_dir='/root/aics/modeling/gregj/results/ipp/ipp_17_12_03/',
+                 csv_root_dir='./',
                  batch_size=32,
                  csv_name='data_jobs_out.csv',
                  data_path_col='save_h5_reg_path',
                  data_type='hdf5',
+                 data_as_image=False,
                  target_col='structureProteinName',
                  convert_target_to_string=True,
                  unique_id_col='save_h5_reg_path',
@@ -135,14 +158,17 @@ class DataProvider(DataProviderABC):
                  split_seed=1,
                  transform=None,
                  num_workers=4,
-                 pin_memory=True):
+                 pin_memory=True,
+                 return_sample_as_dict=True):
         """
         Args:
-            root_dir (string): full path to the directory containing csv_name.
+            data_root_dir = (string): full path to the directory containing all the images.
+            csv_root_dir = (string): full path to the directory containing csv_name.
             batch_size (int): minibatch size for iterating through dataset
             csv_name (string): csv file with annotations, just the base name, not the full path.
             data_path_col (string): column name in csv file containing the paths to the files to be used as input data.
             data_type (string): hdf5, png, jpg, tiff, etc (only hdf5 and common image format + tiff support is implemented)
+            data_as_image (bool): if True, return a PIL image, else return a numpy array of floats
             target_col (string): column name in the csv file containing the data to be used as prediction targets (no paths).
             convert_target_to_string (bool): force conversion of target column contents to string type
             unique_id_col (string): which column in the csv file to use as a unique identifier for each data point
@@ -157,6 +183,7 @@ class DataProvider(DataProviderABC):
             transform (callable, optional): Optional transform to be applied on a sample.
             num_workers (int): number of cpu cores to use loading data
             pin_memory (Bool): should be True unless you're getting gpu memory errors
+            return_sample_as_dict (bool) if true return data, target, unique_id as entries in a dict with those keys, else return a tuple
         """
 
         # save the input options a la greg's style
@@ -165,15 +192,18 @@ class DataProvider(DataProviderABC):
         self.opts = opts
 
         # load up all the data, before splitting it -- the data gets checked in this call
-        self._dataset = csvDataset(root_dir,
+        self._dataset = csvDataset(data_root_dir=data_root_dir,
+                               csv_root_dir=csv_root_dir,
                                csv_name=csv_name,
                                data_path_col=data_path_col,
+                               data_type=data_type,
+                               data_as_image=data_as_image,
                                target_col=target_col,
                                convert_target_to_string=convert_target_to_string,
                                unique_id_col=unique_id_col,
-                               data_type=data_type,
                                channel_inds=channel_inds,
-                               transform=transform)
+                               transform=transform,
+                               return_sample_as_dict=return_sample_as_dict)
         self.df = self._dataset.df
         
         # split the data into the different sets: test, train, valid, whatever
