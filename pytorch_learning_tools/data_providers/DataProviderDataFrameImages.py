@@ -192,6 +192,10 @@ class dataframeDataProvider(DataProviderABC):
         # split dataframe by split inds
         dfs = {split:df.iloc[inds].reset_index(drop=True) for split,inds in self._split_inds.items()}
 
+        # if transform isn't a dict, make it one:
+        if not isinstance(transform, dict):
+            transform = {split:transform for split in self._split_inds.keys()}
+
         # load up all the data, before splitting it -- the data gets checked in this call
         self._datasets = {split:dataframeDataset(df_s,
                                                  data_root_dir=data_root_dir,
@@ -202,11 +206,12 @@ class dataframeDataProvider(DataProviderABC):
                                                  convert_target_to_string=convert_target_to_string,
                                                  unique_id_col=unique_id_col,
                                                  channel_inds=channel_inds,
-                                                 transform=transform,
+                                                 transform=transform[split],
                                                  return_sample_as_dict=return_sample_as_dict) for split,df_s in dfs.items()}
  
         # save filtered dfs as an accessable dict
-        self.df = {split:dset.df for split,dset in self._datasets.items()}
+        self.dfs = {split:dset.df for split,dset in self._datasets.items()}
+        self._df = pd.concat([dset.df for dset in self._datasets.values()], ignore_index=True) 
         
         # create data loaders to efficiently iterate though the random samples
         self.dataloaders = {split:DataLoader(dset,
@@ -215,7 +220,7 @@ class dataframeDataProvider(DataProviderABC):
                                              pin_memory=pin_memory) for split, dset in self._datasets.items()}
        
         # save a map from unique ids to splits
-        splits2ids = {split:df_s[self.opts['unique_id_col']] for split,df_s in self.df.items()}
+        splits2ids = {split:df_s[self.opts['unique_id_col']] for split,df_s in self.dfs.items()}
         self._ids2splits = {v:k for k in splits2ids for v in splits2ids[k]} 
     
     @property
@@ -225,13 +230,13 @@ class dataframeDataProvider(DataProviderABC):
     @property
     def classes(self):
         #return np.unique( self.df[self.opts['target_col']] ).tolist()
-        unique_classes = np.union1d(*[df_s[self.opts['target_col']].unique() for split,df_s in self.df.items()])
+        unique_classes = np.union1d(*[df_s[self.opts['target_col']].unique() for split,df_s in self.dfs.items()])
         if np.any(np.isnan(unique_classes)):
             unique_classes = np.append(unique_classes[~np.isnan(unique_classes)], np.nan)
         return unique_classes.tolist()
 
 
-    # WARNING: get_data_points is an inefficient way to interact with the data,
+    # WARNING: this is an inefficient way to interact with the data,
     # mosty useful for inspecting good/bad predictions post-hoc.
     # To efficiently iterate thoguh the data, use somthing like:
     #
@@ -239,10 +244,9 @@ class dataframeDataProvider(DataProviderABC):
     #     for phase, dataloader in dp.dataloaders.items():
     #         for i_mb,sample_mb in enumerate(dataloader):
     #             data_mb, targets_mb, unique_ids_mb = sample_mb['data'], sample_mb['target'], sample_mb['unique_id']
-    def get_data_points(self, unique_ids):
-        ids2splits = {uid:self._ids2splits[uid] for uid in unique_ids}
-        ids2splitsandinds = {uid:(ids2splits[uid], self.df[ids2splits[uid]].index[self.df[ids2splits[uid]][self.opts['unique_id_col']]] == uid ) for uid in unique_ids}
-        data_points = [self._dataset[split][ind[0]] for uid,(split,ind) in unique_ids.items()]
-        #df_inds = self.df.index[self.df[self.opts['unique_id_col']].isin(unique_ids)].tolist()
-        #data_points = [self._dataset[i] for i in df_inds]
-        return data_points
+    def __getitem__(self, unique_id):
+        split = self._ids2splits[unique_id]
+        df = self.dfs[split]
+        df_ind = df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0]
+        data_point = self._datasets[split][df_ind]
+        return data_point
