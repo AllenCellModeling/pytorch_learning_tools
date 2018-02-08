@@ -93,7 +93,6 @@ class dataframeDataset(Dataset):
             data_path = os.path.join(data_root_dir, df.ix[idx, data_path_col])
             if os.path.isfile(data_path):
                 good_rows += [idx]
-        print('dropping {0} rows out of {1} from the dataframe'.format(len(df) - len(good_rows), len(df)))
         df = df.iloc[good_rows]
         df = df.reset_index(drop=True)
 
@@ -208,7 +207,12 @@ class dataframeDataProvider(DataProviderABC):
                                                  channel_inds=channel_inds,
                                                  transform=transform[split],
                                                  return_sample_as_dict=return_sample_as_dict) for split,df_s in dfs.items()}
- 
+
+        # report how many data points were dropped due to missing data
+        drops = {split: len(self._split_inds[split]) - len(dset) for split,dset in self._datasets.items()}
+        for split in drops.keys():
+            print("dropped {} data points in {} split".format(drops[split],split))
+
         # save filtered dfs as an accessable dict
         self.dfs = {split:dset.df for split,dset in self._datasets.items()}
         self._df = pd.concat([dset.df for dset in self._datasets.values()], ignore_index=True) 
