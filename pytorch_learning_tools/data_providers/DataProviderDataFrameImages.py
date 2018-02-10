@@ -37,7 +37,7 @@ def load_rgb_img(img_path, channel_inds, data_as_image=False):
                 return Image.fromarray(img_arr)
             else:
                 return eight_bit_to_float(img_arr[:,:,channel_inds])
-        
+
 def load_greyscale_tiff(img_path,data_as_image=False):
     # open path as file to avoid ResourceWarning (https://github.com/python-pillow/Pillow/issues/835)
     with open(img_path, 'rb') as f:
@@ -86,7 +86,7 @@ class dataframeDataset(Dataset):
         opts = locals()
         opts.pop('self')
         self._opts = opts
-        
+
         # check that all files we need are present in the df
         good_rows = []
         for idx, row in tqdm(df.iterrows(), total=len(df), desc='scanning files'):
@@ -99,7 +99,7 @@ class dataframeDataset(Dataset):
         # force conversion of target col content sto string if desired
         if convert_target_to_string:
             df[target_col] = df[target_col].astype(str)
-        
+
         # save df
         self.df = df
 
@@ -129,10 +129,10 @@ class dataframeDataset(Dataset):
             sample = {'data': data, 'target': target, 'unique_id': unique_id}
         else:
             sample = (data,target,unique_id)
-        
+
         return sample
 
-    
+
 # This is the dataframe-image dataprovider
 class dataframeDataProvider(DataProviderABC):
     """dataframe dataprovider"""
@@ -140,6 +140,7 @@ class dataframeDataProvider(DataProviderABC):
                  df,
                  data_root_dir='/root/aics/modeling/gregj/results/ipp/ipp_17_12_03/',
                  batch_size=32,
+                 shuffle=True,
                  data_path_col='save_h5_reg_path',
                  data_type='hdf5',
                  data_as_image=False,
@@ -158,18 +159,14 @@ class dataframeDataProvider(DataProviderABC):
             df (pandas.DataFrame): dataframe containing the relative image locations and target data
             data_root_dir = (string): full path to the directory containing all the images.
             batch_size (int): minibatch size for iterating through dataset
+            shuffle (bool): shuffle the data every epoch, default True
             data_path_col (string): column name in dataframe containing the paths to the files to be used as input data.
             data_type (string): hdf5, png, jpg, tiff, etc (only hdf5 and common image format + tiff support is implemented)
             data_as_image (bool): if True, return a PIL image, else return a numpy array of floats
             target_col (string): column name in the dataframe containing the data to be used as prediction targets (no paths).
             convert_target_to_string (bool): force conversion of target column contents to string type
             unique_id_col (string): which column in the dataframe to use as a unique identifier for each data point
-            channel_inds (tuple of integers): 0: cell segmentation
-                                              1: nuclear segmentation
-                                              2: DNA channel
-                                              3: membrane channel
-                                              4: structure channel
-                                              5: bright-field
+            channel_inds (tuple of integers): which image channels to include
             split_fracs (dict): names of splits desired, and fracion of data in each split
             split_seed (int): random seed/salt for splitting has function
             transform (callable, optional): Optional transform to be applied on a sample.
@@ -215,22 +212,23 @@ class dataframeDataProvider(DataProviderABC):
 
         # save filtered dfs as an accessable dict
         self.dfs = {split:dset.df for split,dset in self._datasets.items()}
-        self._df = pd.concat([dset.df for dset in self._datasets.values()], ignore_index=True) 
-        
+        self._df = pd.concat([dset.df for dset in self._datasets.values()], ignore_index=True)
+
         # create data loaders to efficiently iterate though the random samples
         self.dataloaders = {split:DataLoader(dset,
                                              batch_size=batch_size,
+                                             shuffle=shuffle,
                                              num_workers=num_workers,
                                              pin_memory=pin_memory) for split, dset in self._datasets.items()}
-       
+
         # save a map from unique ids to splits
         splits2ids = {split:df_s[self.opts['unique_id_col']] for split,df_s in self.dfs.items()}
-        self._ids2splits = {v:k for k in splits2ids for v in splits2ids[k]} 
-    
+        self._ids2splits = {v:k for k in splits2ids for v in splits2ids[k]}
+
     @property
     def splits(self):
         return self._split_inds
-    
+
     @property
     def classes(self):
         #return np.unique( self.df[self.opts['target_col']] ).tolist()
