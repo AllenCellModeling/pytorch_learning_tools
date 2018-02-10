@@ -108,7 +108,7 @@ class dataframeDataProvider(DataProviderABC):
             unique_id_col (string): which column in the dataframe file to use as a unique identifier for each data point. If None, df index is used.
             return_sample_as_dict (bool) if true return data, target, unique_id as entries in a dict with those keys, else return a tuple
             batch_size (int): minibatch size for iterating through dataset
-            shuffle (bool): shuffle the data every epoch
+            shuffle (bool): shuffle the data every epoch, default True
             split_fracs (dict): names of splits desired, and fracion of data in each split
             split_seed (int): random seed/salt for splitting has function
             num_workers (int): number of cpu cores to use loading data
@@ -184,6 +184,9 @@ class dataframeDataProvider(DataProviderABC):
     def __getitem__(self, unique_id):
         split = self._ids2splits[unique_id]
         df = self.dfs[split]
-        df_ind = df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0]
+        if self.opts['unique_id_col'] is not None:
+            df_ind = df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0]
+        else:
+            df_ind = np.where(self._datasets[split]._u == unique_id)[0][0]
         data_point = self._datasets[split][df_ind]
         return data_point
