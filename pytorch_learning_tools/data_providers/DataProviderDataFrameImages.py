@@ -179,9 +179,14 @@ class dataframeDataProvider(DataProviderABC):
         opts = locals()
         opts.pop('self')
         self.opts = opts
-
+        
         # split the data into the different sets: test, train, valid, whatever
-        self._split_inds = hashsplit(df[self.opts['unique_id_col']],
+        if unique_id_col is None:
+            unique_id_col = 'index_as_uid'
+            df[unique_id_col] = df.index
+            self.opts['unique_id_col'] = unique_id_col
+
+        self._split_inds = hashsplit(df[unique_id_col],
                                      splits=split_fracs,
                                      salt=split_seed)
 
@@ -246,9 +251,25 @@ class dataframeDataProvider(DataProviderABC):
     #     for phase, dataloader in dp.dataloaders.items():
     #         for i_mb,sample_mb in enumerate(dataloader):
     #             data_mb, targets_mb, unique_ids_mb = sample_mb['data'], sample_mb['target'], sample_mb['unique_id']
-    def __getitem__(self, unique_id):
-        split = self._ids2splits[unique_id]
-        df = self.dfs[split]
-        df_ind = df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0]
-        data_point = self._datasets[split][df_ind]
-        return data_point
+    def __getitem__(self, unique_ids):
+        if not isinstance(unique_ids,list):
+            unique_ids = [unique_ids]
+        splits = [self._ids2splits[unique_id] for unique_id in unique_ids]
+        dfs = [self.dfs[split] for split in splits]
+        df_inds = [df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0] for unique_id,df in zip(unique_ids,dfs)]
+        data_points = [self._datasets[split][df_ind] for df_ind,split in zip(df_inds,splits)]
+
+        # group output by type rather than my data point
+        data_points_grouped = [[item[i] for item in data_points] for i in range(3)]
+
+        # x gets stacked as a tensor from [x1,x2,x3]
+        data_points_grouped[0] = torch.stack(data_points_grouped[0])
+
+        # y just gets converted form a list to a whatever kind of tensor it should be
+        targ_dtype_tensor = self.opts['target_dtype_coerce']
+        data_points_grouped[1] = targ_dtype_tensor(data_points_grouped[1])
+
+        # u gets converted from a list to a numpy array
+        data_points_grouped[2] = np.array(data_points_grouped[2])
+
+        return data_points_grouped

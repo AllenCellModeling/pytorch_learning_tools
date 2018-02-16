@@ -23,8 +23,7 @@ class dataframeDataset(Dataset):
                  feat_dtype_coerce=torch.FloatTensor,
                  target_col='structureProteinName',
                  target_dtype_coerce=torch.LongTensor,
-                 unique_id_col='save_h5_reg_path',
-                 return_sample_as_dict=True):
+                 unique_id_col='save_h5_reg_path'):
         """
         Args:
             df (pandas.DataFrame): dataframe containing the image relative locations and target data
@@ -33,7 +32,6 @@ class dataframeDataset(Dataset):
 	        target_col (string): column name in the dataframe containing the data to be used as prediction targets (no paths).
             target_dtype_coerce (type): pytorch tensor type to return target data as
             unique_id_col (string): which column in the dataframe file to use as a unique identifier for each data point. If None, df index is used.
-            return_sample_as_dict (bool) if true return data, target, unique_id as entries in a dict with those keys, else return a tuple
         """
         opts = locals()
         opts.pop('self')
@@ -73,10 +71,7 @@ class dataframeDataset(Dataset):
         target = self._y[idx]
         unique_id = self._u[idx]
 
-        if self._opts['return_sample_as_dict']:
-            sample = {'data': data, 'target': target, 'unique_id': unique_id}
-        else:
-            sample = (data,target,unique_id)
+        sample = (data,target,unique_id)
 
         return sample
 
@@ -91,7 +86,6 @@ class dataframeDataProvider(DataProviderABC):
                  target_col='structureProteinName',
                  target_dtype_coerce=torch.LongTensor,
                  unique_id_col='save_h5_reg_path',
-                 return_sample_as_dict=True,
                  batch_size=32,
                  shuffle=True,
                  split_fracs={'train': 0.8, 'test': 0.2},
@@ -106,7 +100,6 @@ class dataframeDataProvider(DataProviderABC):
             target_col (string): column name in the dataframe containing the data to be used as prediction targets (no paths).
             target_dtype_coerce (type): pytorch tensor type to return target data as
             unique_id_col (string): which column in the dataframe file to use as a unique identifier for each data point. If None, df index is used.
-            return_sample_as_dict (bool) if true return data, target, unique_id as entries in a dict with those keys, else return a tuple
             batch_size (int): minibatch size for iterating through dataset
             shuffle (bool): shuffle the data every epoch, default True
             split_fracs (dict): names of splits desired, and fracion of data in each split
@@ -118,14 +111,18 @@ class dataframeDataProvider(DataProviderABC):
         # save the input options a la greg's style
         opts = locals()
         opts.pop('self')
+        opts.pop('df')
         self.opts = opts
 
+        df = df.reset_index(drop=True)
+
         # split the data into the different sets: test, train, valid, whatever
-        if unique_id_col is not None:
-            self._uids = df[unique_id_col]
-        else:
-            self._uids = np.array(df.index.tolist())
-        self._split_inds = hashsplit(self._uids,
+        if unique_id_col is None:
+            unique_id_col = 'index_as_uid'
+            df[unique_id_col] = df.index
+            self.opts['unique_id_col'] = unique_id_col
+
+        self._split_inds = hashsplit(df[unique_id_col],
                                      splits=split_fracs,
                                      salt=split_seed)
 
@@ -138,8 +135,7 @@ class dataframeDataProvider(DataProviderABC):
                                                  feat_dtype_coerce=feat_dtype_coerce,
                                                  target_col=target_col,
                                                  target_dtype_coerce=target_dtype_coerce,
-                                                 unique_id_col=unique_id_col,
-                                                 return_sample_as_dict=return_sample_as_dict) for split,df_s in dfs.items()}
+                                                 unique_id_col=unique_id_col) for split,df_s in dfs.items()}
 
         # save filtered dfs as an accessable dict
         self.dfs = {split:dset.df for split,dset in self._datasets.items()}
@@ -153,11 +149,7 @@ class dataframeDataProvider(DataProviderABC):
                                              pin_memory=pin_memory) for split, dset in self._datasets.items()}
 
         # save a map from unique ids to splits
-        if unique_id_col is not None:
-            splits2ids = {split:df_s[unique_id_col] for split,df_s in self.dfs.items()}
-        else:
-            splits2ids = {split:self._uids[self._split_inds[split]] for split,df_s in self.dfs.items()}
-
+        splits2ids = {split:df_s[self.opts['unique_id_col']] for split,df_s in self.dfs.items()}
         self._ids2splits = {v:k for k in splits2ids for v in splits2ids[k]}
 
     @property
@@ -181,12 +173,25 @@ class dataframeDataProvider(DataProviderABC):
     #     for phase, dataloader in dp.dataloaders.items():
     #         for i_mb,sample_mb in enumerate(dataloader):
     #             data_mb, targets_mb, unique_ids_mb = sample_mb['data'], sample_mb['target'], sample_mb['unique_id']
-    def __getitem__(self, unique_id):
-        split = self._ids2splits[unique_id]
-        df = self.dfs[split]
-        if self.opts['unique_id_col'] is not None:
-            df_ind = df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0]
-        else:
-            df_ind = np.where(self._datasets[split]._u == unique_id)[0][0]
-        data_point = self._datasets[split][df_ind]
-        return data_point
+    def __getitem__(self, unique_ids):
+        if not isinstance(unique_ids,list):
+            unique_ids = [unique_ids]
+        splits = [self._ids2splits[unique_id] for unique_id in unique_ids]
+        dfs = [self.dfs[split] for split in splits]
+        df_inds = [df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0] for unique_id,df in zip(unique_ids,dfs)]
+        data_points = [self._datasets[split][df_ind] for df_ind,split in zip(df_inds,splits)]
+
+        # group output by type rather than my data point
+        data_points_grouped = [[item[i] for item in data_points] for i in range(3)]
+
+        # x gets stacked as a tensor from [x1,x2,x3]
+        data_points_grouped[0] = torch.stack(data_points_grouped[0])
+
+        # y just gets converted form a list to a whatever kind of tensor it should be
+        targ_dtype_tensor = self.opts['target_dtype_coerce']
+        data_points_grouped[1] = targ_dtype_tensor(data_points_grouped[1])
+
+        # u gets converted from a list to a numpy array
+        data_points_grouped[2] = np.array(data_points_grouped[2])
+
+        return data_points_grouped
