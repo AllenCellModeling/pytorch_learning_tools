@@ -6,13 +6,12 @@ from tqdm import tqdm
 from random import sample
 from PIL import Image
 
+import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 
-
 from ..utils.hashsplit import hashsplit
 from .DataProviderABC import DataProviderABC
-
 
 # these are a few of utility functions that might be better stored elsewhere
 def eight_bit_to_float(im, dtype=np.uint8):
@@ -58,33 +57,27 @@ class dataframeDataset(Dataset):
                  data_path_col='save_h5_reg_path',
                  data_type='hdf5',
                  data_as_image=False,
+                 data_type_coerce=torch.FloatTensor,
                  target_col='structureProteinName',
-                 convert_target_to_string=True,
                  unique_id_col='save_h5_reg_path',
                  channel_inds=(3, 4, 2),
-                 transform=None,
-                 return_sample_as_dict=True):
+                 transform=None):
         """
         Args:
             df (pandas.DataFrame): dataframe containing the image relative locations and target data
             data_root_dir (string): full path to the directory containing all the images.
             data_path_col (string): column name in dataframe containing the paths to the files to be used as input data.
-            data_type (string): hdf5, png, etc (only hdf5 support is implemented)
+            data_type (string): hdf5, png, etc (only hdf5 and basic image type support is implemented)
+            data_type_coerce (torch data type): torch.FloatTensor, torch.DoubleTensor, etc
             data_as_image (bool): if True, return a pil image, if False, return a np array of floats
 	    target_col (string): column name in the dataframe containing the data to be used as prediction targets (no paths).
-            convert_target_to_string (bool): force conversion of target col to string
             unique_id_col (string): which column in the dataframe file to use as a unique identifier for each data point
-            channel_inds (tuple of integers): 0: cell segmentation
-                                              1: nuclear segmentation
-                                              2: DNA channel
-                                              3: membrane channel
-                                              4: structure channel
-                                              5: bright-field
-            transform (callable, optional): Optional transform to be applied on a sample.
-            return_sample_as_dict (bool) if true return data, target, unique_id as entries in a dict with those keys, else return a tuple
+            channel_inds (tuple of integers): which channels in the input image do you want to keep as data
+            transform (callable, optional): Optional torchvision transform to be applied on a sample, only works if data_as_image
         """
         opts = locals()
         opts.pop('self')
+        opts.pop('df')
         self._opts = opts
 
         # check that all files we need are present in the df
@@ -95,10 +88,6 @@ class dataframeDataset(Dataset):
                 good_rows += [idx]
         df = df.iloc[good_rows]
         df = df.reset_index(drop=True)
-
-        # force conversion of target col content sto string if desired
-        if convert_target_to_string:
-            df[target_col] = df[target_col].astype(str)
 
         # save df
         self.df = df
@@ -121,14 +110,15 @@ class dataframeDataset(Dataset):
             if self._opts['transform']:
                 trans = self._opts['transform']
                 data = trans(data)
-
+        else:
+            data = torch.from_numpy(data)
+        data = data.type(self._opts['data_type_coerce'])
+ 
         target = self.df.ix[idx, self._opts['target_col']]
+        target = torch.from_numpy(np.array([target]))
         unique_id = self.df.ix[idx, self._opts['unique_id_col']]
 
-        if self._opts['return_sample_as_dict']:
-            sample = {'data': data, 'target': target, 'unique_id': unique_id}
-        else:
-            sample = (data,target,unique_id)
+        sample = (data,target,unique_id)
 
         return sample
 
@@ -145,15 +135,13 @@ class dataframeDataProvider(DataProviderABC):
                  data_type='hdf5',
                  data_as_image=False,
                  target_col='structureProteinName',
-                 convert_target_to_string=True,
                  unique_id_col='save_h5_reg_path',
                  channel_inds=(3, 4, 2),
                  split_fracs={'train': 0.8, 'test': 0.2},
                  split_seed=1,
                  transform=None,
                  num_workers=4,
-                 pin_memory=True,
-                 return_sample_as_dict=True):
+                 pin_memory=True):
         """
         Args:
             df (pandas.DataFrame): dataframe containing the relative image locations and target data
@@ -163,21 +151,20 @@ class dataframeDataProvider(DataProviderABC):
             data_path_col (string): column name in dataframe containing the paths to the files to be used as input data.
             data_type (string): hdf5, png, jpg, tiff, etc (only hdf5 and common image format + tiff support is implemented)
             data_as_image (bool): if True, return a PIL image, else return a numpy array of floats
-            target_col (string): column name in the dataframe containing the data to be used as prediction targets (no paths).
-            convert_target_to_string (bool): force conversion of target column contents to string type
+            target_col (string): column name in the dataframe containing the data to be used as prediction targets.
             unique_id_col (string): which column in the dataframe to use as a unique identifier for each data point
-            channel_inds (tuple of integers): which image channels to include
+            channel_inds (tuple of integers): which channels in the input image do you want to keep as data
             split_fracs (dict): names of splits desired, and fracion of data in each split
             split_seed (int): random seed/salt for splitting has function
-            transform (callable, optional): Optional transform to be applied on a sample.
+            transform (callable, optional): Optional transform to be applied on a samplei, only works if data_as_image.
             num_workers (int): number of cpu cores to use loading data
             pin_memory (Bool): should be True unless you're getting gpu memory errors
-            return_sample_as_dict (bool) if true return data, target, unique_id as entries in a dict with those keys, else return a tuple
         """
 
         # save the input options a la greg's style
         opts = locals()
         opts.pop('self')
+        opts.pop('df')
         self.opts = opts
         
         # split the data into the different sets: test, train, valid, whatever
@@ -204,11 +191,9 @@ class dataframeDataProvider(DataProviderABC):
                                                  data_type=data_type,
                                                  data_as_image=data_as_image,
                                                  target_col=target_col,
-                                                 convert_target_to_string=convert_target_to_string,
                                                  unique_id_col=unique_id_col,
                                                  channel_inds=channel_inds,
-                                                 transform=transform[split],
-                                                 return_sample_as_dict=return_sample_as_dict) for split,df_s in dfs.items()}
+                                                 transform=transform[split]) for split,df_s in dfs.items()}
 
         # report how many data points were dropped due to missing data
         drops = {split: len(self._split_inds[split]) - len(dset) for split,dset in self._datasets.items()}
@@ -258,16 +243,21 @@ class dataframeDataProvider(DataProviderABC):
         dfs = [self.dfs[split] for split in splits]
         df_inds = [df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0] for unique_id,df in zip(unique_ids,dfs)]
         data_points = [self._datasets[split][df_ind] for df_ind,split in zip(df_inds,splits)]
-
+        print(data_points)
+        
         # group output by type rather than my data point
         data_points_grouped = [[item[i] for item in data_points] for i in range(3)]
+        print(data_points_grouped)
 
+        #for d in data_points_grouped:
+        #    for x,y,u in d:
+        #        print(type(d_i))
+        
         # x gets stacked as a tensor from [x1,x2,x3]
         data_points_grouped[0] = torch.stack(data_points_grouped[0])
 
-        # y just gets converted form a list to a whatever kind of tensor it should be
-        targ_dtype_tensor = self.opts['target_dtype_coerce']
-        data_points_grouped[1] = targ_dtype_tensor(data_points_grouped[1])
+        # y gets stacked as a tensor from [y1,y2,y3]
+        data_points_grouped[1] = torch.stack(data_points_grouped[1])
 
         # u gets converted from a list to a numpy array
         data_points_grouped[2] = np.array(data_points_grouped[2])
