@@ -22,3 +22,8 @@ def indices_to_onehot(indices, nclasses = None):
     onehot[np.arange(0, ndat), indices] = 1
 
     return onehot
+
+def eight_bit_to_float(im, dtype=np.uint8):
+    imax = np.iinfo(dtype).max  # imax = 255 for uint8
+    im = im / imax
+    return im
