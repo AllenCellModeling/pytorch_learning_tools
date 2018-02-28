@@ -28,13 +28,12 @@ class dataframeDataset(Dataset):
         Args:
             df (pandas.DataFrame): dataframe containing the image relative locations and target data
             feat_col_pattern (string): pattern to match for cols to be used as features
-            feat_dtype_coerce (type): pytorch tensor type to return input data as
-	        target_col (string): column name in the dataframe containing the data to be used as prediction targets (no paths).
-            target_dtype_coerce (type): pytorch tensor type to return target data as
+            target_col (string): column name in the dataframe containing the data to be used as prediction targets (no paths).
             unique_id_col (string): which column in the dataframe file to use as a unique identifier for each data point. If None, df index is used.
         """
         opts = locals()
         opts.pop('self')
+        opts.pop('df')
         self._opts = opts
 
         master_inds = np.array(df.index.tolist())
@@ -66,10 +65,12 @@ class dataframeDataset(Dataset):
         return len(self.df)
 
     def __getitem__(self, idx):
+        if not isinstance(idx,list):
+            idx = [idx]
 
         data = self._X[idx]
         target = self._y[idx]
-        unique_id = self._u[idx]
+        unique_id = list(self._u[idx])
 
         sample = (data,target,unique_id)
 
@@ -181,17 +182,15 @@ class dataframeDataProvider(DataProviderABC):
         df_inds = [df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0] for unique_id,df in zip(unique_ids,dfs)]
         data_points = [self._datasets[split][df_ind] for df_ind,split in zip(df_inds,splits)]
 
-        # group output by type rather than my data point
-        data_points_grouped = [[item[i] for item in data_points] for i in range(3)]
+        # if more than one data point, group by type rather than by data point
+        if len(data_points) == 1:
+            return data_points[0]
+        else:
+            data_points_grouped = list(zip(*data_points))
 
-        # x gets stacked as a tensor from [x1,x2,x3]
-        data_points_grouped[0] = torch.stack(data_points_grouped[0])
+            # x and y each get stacked as tensors
+            for i in (0,1):
+                data_points_grouped[i] = torch.stack(data_points_grouped[i])
 
-        # y just gets converted form a list to a whatever kind of tensor it should be
-        targ_dtype_tensor = self.opts['target_dtype_coerce']
-        data_points_grouped[1] = targ_dtype_tensor(data_points_grouped[1])
+            return data_points_grouped
 
-        # u gets converted from a list to a numpy array
-        data_points_grouped[2] = np.array(data_points_grouped[2])
-
-        return data_points_grouped
