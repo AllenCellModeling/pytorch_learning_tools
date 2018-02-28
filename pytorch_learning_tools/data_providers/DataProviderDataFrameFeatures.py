@@ -31,7 +31,6 @@ class dataframeDataset(Dataset):
         opts.pop('df')
         self.opts = opts
 
-        master_inds = np.array(df.index.tolist())
         df = df.reset_index(drop=True)
         self.df = df
 
