@@ -99,7 +99,7 @@ class dataframeDataProvider(DataProviderABC):
 
         df = df.reset_index(drop=True)
 
-        # if no unique id column to dataframe if none supplied
+        # add unique id column to dataframe if none supplied
         if unique_id_col is None:
             unique_id_col = 'index_as_uid'
             df[unique_id_col] = df.index
