@@ -1,34 +1,19 @@
 import os
 import numpy as np
 import pandas as pd
-import h5py
 from tqdm import tqdm
 from random import sample
-from PIL import Image
 
 import torch
 from torch.utils.data import Dataset, DataLoader
-from torchvision import utils
 
 from ..utils.hashsplit import hashsplit
+from ..utils.data_loading_utils import load_h5
 from .DataProviderABC import DataProviderABC
-
-# these are a few of utility functions that might be better stored elsewhere
-def eight_bit_to_float(im, dtype=np.uint8):
-    imax = np.iinfo(dtype).max  # imax = 255 for uint8
-    im = im / imax
-    return im
-
-def load_h5(h5_path, image_channels):
-    f = h5py.File(h5_path, 'r')
-    image = f['image'].value[image_channels, ::]
-    image = eight_bit_to_float(image)
-    return torch.from_numpy(image)
-
 
 # this is an augmentation to PyTorch's Dataset class that our Dataprovider below will use
 class dataframeDataset(Dataset):
-    """dataframe Dataset."""
+    """HDF5 dataframe Dataset."""
 
     def __init__(self,
                  df,
@@ -52,16 +37,8 @@ class dataframeDataset(Dataset):
         opts.pop('df')
         self.opts = opts
 
-        # check that all files we need are present in the df
-        good_rows = []
-        for idx, row in tqdm(df.iterrows(), total=len(df), desc='scanning files'):
-            image_path = os.path.join(image_root_dir, df.ix[idx, image_path_col])
-            if os.path.isfile(image_path):
-                good_rows += [idx]
-        df = df.iloc[good_rows]
-        df = df.reset_index(drop=True)
-
         # save df
+        df = df.reset_index(drop=True)
         self.df = df
 
     def __len__(self):
@@ -69,6 +46,7 @@ class dataframeDataset(Dataset):
 
     def __getitem__(self, idx):
 
+        # everything is a list
         if not isinstance(idx,list):
             idx = [idx]
 
@@ -78,27 +56,27 @@ class dataframeDataset(Dataset):
         # load the image
         data = [load_h5(ipath, self.opts['image_channels']) for ipath in image_paths]
         data = torch.stack(data)
- 
+
         # load the target
         target = self.df.ix[idx, self.opts['target_col']].values
         target = torch.from_numpy(np.array([target])).transpose_(0,1)
-        
+
         # load the unique id
         unique_id = list(self.df.ix[idx, self.opts['unique_id_col']].values)
-        
+
+        # if only one thing requested, don't wrap it in a list
         if len(image_paths) == 1:
             data = torch.squeeze(data, dim=0)
             target = torch.squeeze(target, dim=0)
             unique_id = unique_id[0]
 
         # collate the sample and return
-        sample = (data,target,unique_id)
-        return sample
+        return (data,target,unique_id)
 
 
 # This is the dataframe-image dataprovider
 class dataframeDataProvider(DataProviderABC):
-    """dataframe dataprovider"""
+    """HDF5 dataframe dataprovider"""
     def __init__(self,
                  df,
                  image_root_dir='/root/aics/modeling/gregj/results/ipp/ipp_17_12_03/',
@@ -135,12 +113,13 @@ class dataframeDataProvider(DataProviderABC):
         opts.pop('df')
         self.opts = opts
         
-        # split the data into the different sets: test, train, valid, whatever
+        # add unique id column to dataframe if none supplied
         if unique_id_col is None:
             unique_id_col = 'index_as_uid'
             df[unique_id_col] = df.index
             self.opts['unique_id_col'] = unique_id_col
 
+        # split the data into the different sets: test, train, valid, whatever
         self._split_inds = hashsplit(df[unique_id_col],
                                      splits=split_fracs,
                                      salt=split_seed)
@@ -156,11 +135,6 @@ class dataframeDataProvider(DataProviderABC):
                                                  target_col=target_col,
                                                  unique_id_col=unique_id_col) for split,df_s in dfs.items()}
 
-        # report how many data points were dropped due to missing data
-        drops = {split: len(self._split_inds[split]) - len(dset) for split,dset in self._datasets.items()}
-        for split in drops.keys():
-            print("dropped {} data points in {} split".format(drops[split],split))
-
         # save filtered dfs as an accessable dict
         self.dfs = {split:dset.df for split,dset in self._datasets.items()}
         self._df = pd.concat([dset.df for dset in self._datasets.values()], ignore_index=True)
@@ -172,9 +146,9 @@ class dataframeDataProvider(DataProviderABC):
                                              num_workers=num_workers,
                                              pin_memory=pin_memory) for split, dset in self._datasets.items()}
 
-        # save a map from unique ids to splits
-        splits2ids = {split:df_s[self.opts['unique_id_col']] for split,df_s in self.dfs.items()}
-        self._ids2splits = {v:k for k in splits2ids for v in splits2ids[k]}
+        # save a map from unique ids to splits + inds
+        splits2indsuids = {split:tuple(zip(df_s[self.opts['unique_id_col']],df_s.index)) for split,df_s in self.dfs.items()}
+        self._uids2splitsinds = {uid:(split,ind) for split in splits2indsuids for (uid,ind) in splits2indsuids[split]}
 
     @property
     def splits(self):
@@ -187,34 +161,25 @@ class dataframeDataProvider(DataProviderABC):
             unique_classes = np.append(unique_classes[~np.isnan(unique_classes)], np.nan)
         return unique_classes.tolist()
 
-
-    # WARNING: this is an inefficient way to interact with the data,
-    # mosty useful for inspecting good/bad predictions post-hoc.
-    # To efficiently iterate thoguh the data, use somthing like:
-    #
-    # for epoch in range(N_epochs):
-    #     for phase, dataloader in dp.dataloaders.items():
-    #         for i_mb,sample_mb in enumerate(dataloader):
-    #             data_mb, targets_mb, unique_ids_mb = sample_mb['data'], sample_mb['target'], sample_mb['unique_id']
     def __getitem__(self, unique_ids):
+
+        # everything is a list
         if not isinstance(unique_ids,list):
             unique_ids = [unique_ids]
-        
-        # find split each uid is in, get corresponding dfs, get inds in those dfs, and finaaly get data points
-        splits = [self._ids2splits[unique_id] for unique_id in unique_ids]
-        dfs = [self.dfs[split] for split in splits]
-        df_inds = [df.index[df[self.opts['unique_id_col']] == unique_id].tolist()[0] for unique_id,df in zip(unique_ids,dfs)]
-        data_points = [self._datasets[split][df_ind] for df_ind,split in zip(df_inds,splits)]
-        
+
+        # get (split,ind) list from uid list, then get datapoints from datasets
+        splitsinds = [self._uids2splitsinds[uid] for uid in unique_ids]
+        datapoints = [self._datasets[split][ind] for split,ind in splitsinds]
+
         # if more than one data point, group by type rather than by data point
-        if len(data_points) == 1:
-            return data_points[0]
+        if len(datapoints) == 1:
+            return datapoints[0]
         else:
-            data_points_grouped = list(zip(*data_points))
+            datapoints_grouped = list(zip(*datapoints))
             
             # x and y each get stacked as tensors
             for i in (0,1):
-                data_points_grouped[i] = torch.stack(data_points_grouped[i])
+                datapoints_grouped[i] = torch.stack(datapoints_grouped[i])
 
-            return data_points_grouped
+            return datapoints_grouped
 
