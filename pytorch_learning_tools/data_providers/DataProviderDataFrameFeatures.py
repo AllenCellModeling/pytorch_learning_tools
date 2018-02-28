@@ -41,7 +41,7 @@ class dataframeDataset(Dataset):
         X = torch.from_numpy(X)
         self._X = X
 
-        #construct y
+        # construct y
         y = df[target_col].values
         y = torch.from_numpy(y)
         self._y = y
