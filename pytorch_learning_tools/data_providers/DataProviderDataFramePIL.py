@@ -7,6 +7,7 @@ from random import sample
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+from torchvision.transforms.functional import to_tensor
 
 from ..utils.hashsplit import hashsplit
 from ..utils.data_loading_utils import load_rgb_img, load_greyscale_tiff
@@ -62,8 +63,7 @@ class dataframeDataset(Dataset):
         if self.opts['preload_data_in_memory']:
             image_paths = [os.path.join(self.opts['image_root_dir'], self.df.ix[i, self.opts['image_path_col']]) for i in df.index]
             self._X = [self._imgloader(ipath, self.opts['image_channels'])
-                           for ipath in tqdm(image_paths, desc='Loading images into main memory', unit='images')]
-            self._X = torch.stack(self._X)
+                           for ipath in tqdm(image_paths, desc='Loading images into main memory', unit=' images')]
             self._y = torch.from_numpy(df[target_col].values)
             self._u = df[self.opts['unique_id_col']].values
 
@@ -81,8 +81,7 @@ class dataframeDataset(Dataset):
 
         # if we preloaded, just grab the data
         if self.opts['preload_data_in_memory']:
-            data = self._X[idx]
-            data = torch.stack([self._trans(d) for d in data])
+            data = torch.stack([self._trans(self._X[i]) for i in idx])
             target = self._y[idx]
             unique_id = self._u[idx]
         else:
