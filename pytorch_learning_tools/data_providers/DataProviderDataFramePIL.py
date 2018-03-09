@@ -25,7 +25,7 @@ class dataframeDataset(Dataset):
                  image_channels=(0,1,2),
                  image_transform=transforms.Compose([transforms.ToTensor()]),
                  target_col='structureProteinName',
-                 unique_id_col='save_h5_reg_path'
+                 unique_id_col='save_h5_reg_path',
                  preload_data_in_memory=False):
         """
         Args:
