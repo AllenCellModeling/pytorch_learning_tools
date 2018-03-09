@@ -74,8 +74,10 @@ class dataframeDataProvider(DataProviderABC):
                  shuffle=True,
                  split_fracs={'train': 0.8, 'test': 0.2},
                  split_seed=1,
-                 num_workers=4,
-                 pin_memory=True):
+                 dataloader_kwargs={'batch_size':32,
+                                    'shuffle':True,
+                                    'num_workers':4,
+                                    'pin_memory':True})
         """
         Args:
             df (pandas.DataFrame): dataframe containing the image relative locations and target data
@@ -124,11 +126,7 @@ class dataframeDataProvider(DataProviderABC):
         self._df = pd.concat([dset.df for dset in self._datasets.values()], ignore_index=True)
 
         # create data loaders to efficiently iterate though the random samples
-        self.dataloaders = {split:DataLoader(dset,
-                                             batch_size=batch_size,
-                                             shuffle=shuffle,
-                                             num_workers=num_workers,
-                                             pin_memory=pin_memory) for split, dset in self._datasets.items()}
+        self.dataloaders = {split:DataLoader(dset, **dataloader_kwargs) for split, dset in self._datasets.items()}
 
         # save a map from unique ids to splits + inds
         splits2indsuids = {split:tuple(zip(df_s[self.opts['unique_id_col']],df_s.index)) for split,df_s in self.dfs.items()}
