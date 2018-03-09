@@ -125,6 +125,7 @@ class dataframeDataProvider(DataProviderABC):
                  unique_id_col='save_h5_reg_path',
                  split_fracs={'train': 0.8, 'test': 0.2},
                  split_seed=1,
+                 preload_data_in_memory=False,
                  dataloader_kwargs={'batch_size':32,
                                     'shuffle':True,
                                     'num_workers':4,
@@ -147,6 +148,7 @@ class dataframeDataProvider(DataProviderABC):
             split_seed (int): random seed/salt for splitting has function
             num_workers (int): number of cpu cores to use loading data
             pin_memory (Bool): should be True unless you're getting gpu memory errors
+            preload_data_in_memory (bool) load up all the data in main memory or not
         """
 
         # save the input options a la greg's style
@@ -173,7 +175,7 @@ class dataframeDataProvider(DataProviderABC):
         if not isinstance(image_transform, dict):
             image_transform = {split:image_transform for split in self._split_inds.keys()}
 
-        # load up all the data, before splitting it -- the data gets checked in this call
+        # load up all the data, before splitting it
         self._datasets = {split:dataframeDataset(df_s,
                                                  image_root_dir=image_root_dir,
                                                  image_path_col=image_path_col,
@@ -181,9 +183,10 @@ class dataframeDataProvider(DataProviderABC):
                                                  image_channels=image_channels,
                                                  image_transform=image_transform[split],
                                                  target_col=target_col,
-                                                 unique_id_col=unique_id_col) for split,df_s in dfs.items()}
+                                                 unique_id_col=unique_id_col,
+                                                 preload_data_in_memory=preload_data_in_memory) for split,df_s in dfs.items()}
 
-        # save filtered dfs as an accessable dict
+        # save dfs as an accessable dict
         self.dfs = {split:dset.df for split,dset in self._datasets.items()}
         self._df = pd.concat([dset.df for dset in self._datasets.values()], ignore_index=True)
 
