@@ -25,7 +25,8 @@ class dataframeDataset(Dataset):
                  image_channels=(0,1,2),
                  image_transform=transforms.Compose([transforms.ToTensor()]),
                  target_col='structureProteinName',
-                 unique_id_col='save_h5_reg_path'):
+                 unique_id_col='save_h5_reg_path'
+                 preload_data_in_memory=False):
         """
         Args:
             df (pandas.DataFrame): dataframe containing the image relative locations and target data
@@ -38,6 +39,7 @@ class dataframeDataset(Dataset):
         target_col (string): column name in the dataframe containing the data to be used as prediction targets
                                  column contents must be a type that can be converted to a pytorch tensor, eg np.float32 
             unique_id_col (string): which column in the dataframe file to use as a unique identifier for each data point
+            preload_data_in_memory (bool) load up all the data in main memory or not
         """
         opts = locals()
         opts.pop('self')
@@ -56,6 +58,16 @@ class dataframeDataset(Dataset):
         else:
             raise ValueError('image_type {} is not supported, only basic images'.format(self.image_type))
 
+        # preload data to main memory or not
+        if preload_data_in_memory:
+            image_paths = [os.path.join(self.opts['image_root_dir'], self.df.ix[i, self.opts['image_path_col']]) for i in df.index]
+            self._X = torch.stack([self._imgloader(ipath, self.opts['image_channels']) for ipath in image_paths])
+            self._y = torch.from_numpy(df[target_col].values)
+            self._u = df[self.opts['unique_id_col']].values
+
+        # save the transform as a callable function
+        self._trans = self.opts['image_transform']
+
     def __len__(self):
         return len(self.df)
 
@@ -65,25 +77,31 @@ class dataframeDataset(Dataset):
         if not isinstance(idx,list):
             idx = [idx]
 
-        # get the path to the image
-        image_paths = [os.path.join(self.opts['image_root_dir'], self.df.ix[i, self.opts['image_path_col']]) for i in idx]
+        # if we preloaded, just grab the data
+        if preload_data_in_memory:
+            data = self._X[idx]
+            data = torch.stack([self._trans(d) for d in data])
+            target = self._y[idx]
+            unique_id = self._u[idx]
+        else:
+            # get the path to the image
+            image_paths = [os.path.join(self.opts['image_root_dir'], self.df.ix[i, self.opts['image_path_col']]) for i in idx]
 
-        # load the image
-        data = [self._imgloader(ipath, self.opts['image_channels']) for ipath in image_paths]
+            # load the image
+            data = [self._imgloader(ipath, self.opts['image_channels']) for ipath in image_paths]
 
-        # transform the image
-        trans = self.opts['image_transform']
-        data = torch.stack([trans(d) for d in data])
+            # transform the image
+            data = torch.stack([self._trans(d) for d in data])
 
-        # load the target
-        target = self.df.ix[idx, self.opts['target_col']].values
-        target = torch.from_numpy(np.array([target])).transpose_(0,1)
+            # load the target
+            target = self.df.ix[idx, self.opts['target_col']].values
+            target = torch.from_numpy(np.array([target])).transpose_(0,1)
 
-        # load the unique id
-        unique_id = list(self.df.ix[idx, self.opts['unique_id_col']].values)
+            # load the unique id
+            unique_id = list(self.df.ix[idx, self.opts['unique_id_col']].values)
 
         # if only one thing requested, don't wrap it in a list
-        if len(image_paths) == 1:
+        if len(idx) == 1:
             data = torch.squeeze(data, dim=0)
             target = torch.squeeze(target, dim=0)
             unique_id = unique_id[0]
