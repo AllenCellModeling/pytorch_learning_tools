@@ -35,7 +35,7 @@ class dataframeDataset(Dataset):
             image_channels (tuple of integers): which channels in the input image do you want to keep as data
             image_transform (callable): torchvision transform to be applied on a sample, default is transforms.Compose([transforms.ToTensor()])
                                         to keep only the channels you want, add e.g. lambda x: x[(0,2),:,:] to the Compose
-	    target_col (string): column name in the dataframe containing the data to be used as prediction targets
+        target_col (string): column name in the dataframe containing the data to be used as prediction targets
                                  column contents must be a type that can be converted to a pytorch tensor, eg np.float32 
             unique_id_col (string): which column in the dataframe file to use as a unique identifier for each data point
         """
@@ -47,6 +47,14 @@ class dataframeDataset(Dataset):
         # save df
         df = df.reset_index(drop=True)
         self.df = df
+
+        # pick an image loader
+        if self.opts['image_type'] in ['jpg','JPG','jpeg','JPEG','png','PNG','ppm','PPM','bmp','BMP']:
+            self._imgloader = load_rgb_img
+        elif self.opts['image_type'] in ['tif', 'TIF', 'tiff', 'TIFF']:
+            self._imgloader = load_greyscale_tiff
+        else:
+            raise ValueError('image_type {} is not supported, only basic images'.format(self.image_type))
 
     def __len__(self):
         return len(self.df)
@@ -61,21 +69,16 @@ class dataframeDataset(Dataset):
         image_paths = [os.path.join(self.opts['image_root_dir'], self.df.ix[i, self.opts['image_path_col']]) for i in idx]
 
         # load the image
-        if self.opts['image_type'] in ['jpg','JPG','jpeg','JPEG','png','PNG','ppm','PPM','bmp','BMP']:
-            data = [load_rgb_img(ipath, self.opts['image_channels']) for ipath in image_paths]
-        elif self.opts['image_type'] in ['tif', 'TIF', 'tiff', 'TIFF']:
-            data = [load_greyscale_tiff(ipath) for ipath in image_paths]
-        else:
-            raise ValueError('image_type {} is not supported, only basic images'.format(self.image_type))
+        data = [self._imgloader(ipath, self.opts['image_channels']) for ipath in image_paths]
 
         # transform the image
         trans = self.opts['image_transform']
         data = torch.stack([trans(d) for d in data])
- 
+
         # load the target
         target = self.df.ix[idx, self.opts['target_col']].values
         target = torch.from_numpy(np.array([target])).transpose_(0,1)
-        
+
         # load the unique id
         unique_id = list(self.df.ix[idx, self.opts['unique_id_col']].values)
 
@@ -86,8 +89,7 @@ class dataframeDataset(Dataset):
             unique_id = unique_id[0]
 
         # collate the sample and return
-        sample = (data,target,unique_id)
-        return sample
+        return (data,target,unique_id)
 
 
 # This is the dataframe-image dataprovider

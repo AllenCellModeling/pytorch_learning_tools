@@ -4,7 +4,7 @@ from PIL import Image
 import h5py
 from .data_utils import eight_bit_to_float
 
-def load_rgb_img(img_path, image_channels):
+def load_rgb_img(img_path, image_channels, *args, **kwargs):
     with open(img_path, 'rb') as f:
         with Image.open(f) as img:
             img_arr = np.array(img.convert('RGB'))
@@ -13,12 +13,12 @@ def load_rgb_img(img_path, image_channels):
                 img_arr[:,:,zero_channels] = 0
             return Image.fromarray(img_arr, mode='RGB')
 
-def load_greyscale_tiff(img_path):
+def load_greyscale_tiff(img_path, *args, **kwargs):
     with open(img_path, 'rb') as f:
         with Image.open(f) as img:
             return img
 
-def load_h5(h5_path, image_channels):
+def load_h5(h5_path, image_channels, *args, **kwargs):
     f = h5py.File(h5_path, 'r')
     image = f['image'].value[image_channels, ::]
     image = eight_bit_to_float(image)
