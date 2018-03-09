@@ -60,9 +60,10 @@ class dataframeDataset(Dataset):
 
         # preload data to main memory or not
         if self.opts['preload_data_in_memory']:
-            image_paths = [os.path.join(self.opts['image_root_dir'], self.df.ix[i, self.opts['image_path_col']])
-                               for i in tqdm(df.index, desc='Loading images into main memory', unit='images')]
-            self._X = torch.stack([self._imgloader(ipath, self.opts['image_channels']) for ipath in image_paths])
+            image_paths = [os.path.join(self.opts['image_root_dir'], self.df.ix[i, self.opts['image_path_col']]) for i in df.index]
+            self._X = [self._imgloader(ipath, self.opts['image_channels'])
+                           for ipath in tqdm(image_paths, desc='Loading images into main memory', unit='images')]
+            self._X = torch.stack(self._X)
             self._y = torch.from_numpy(df[target_col].values)
             self._u = df[self.opts['unique_id_col']].values
 
