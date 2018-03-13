@@ -145,7 +145,7 @@ class dataframeDataProvider(DataProviderABC):
                  dset_type=dataframeDatasetFeatures,
                  split_fracs={'train': 0.8, 'test': 0.2},
                  split_seed=1,
-                 dataset_kwargs={split:{'feat_col_pattern'='feat_',
+                 dataset_kwargs={split:{'feat_col_pattern':'feat_',
                                         'target_col':'targetNumeric',
                                         'unique_id_col':'save_h5_reg_path'} for split in ('train', 'test')},
                  dataloader_kwargs={split:{'batch_size':128,
