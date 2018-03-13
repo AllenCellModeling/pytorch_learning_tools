@@ -58,30 +58,26 @@ class dataframeDataset(Dataset):
         return (image, target, unique_id)
 
     def __getitem__(self, idx):
-        idx = [idx] if not isinstance(idx,list) else idx
-        return collate_data([self._get_single_item(i) for i in idx])
+        return collate_data([self._get_single_item(i) for i in idx]) if isinstance(idx,list) else self._get_single_item(idx)
 
 # This is the dataframe-image dataprovider
 class dataframeDataProvider(DataProviderABC):
     """PIL image dataframe dataprovider"""
-    
-    dataset_kwargs={split:{'image_root_dir':'/root/aics/modeling/gregj/results/ipp/ipp_17_12_03/',
-                           'image_path_col':'save_flat_reg_path',
-                           'image_type':'png',
-                           'image_channels':(0,2),
-                           'target_col':'targetNumeric',
-                           'unique_id_col':'save_h5_reg_path'} for split in ('train', 'test')}
-    dataloader_kwargs={split:{'batch_size':128,
-                              'shuffle':True,
-                              'drop_last':True,
-                              'num_workers':4,
-                              'pin_memory':True} for split in ('train', 'test')}
-
     def __init__(self, df,
                  split_fracs={'train': 0.8, 'test': 0.2},
                  split_seed=1,
-                 dataset_kwargs=dataset_kwargs,
-                 dataloader_kwargs=dataloader_kwargs):
+                 dataset_kwargs={split:{'image_root_dir':'/root/aics/modeling/gregj/results/ipp/ipp_17_12_03/',
+                                        'image_path_col':'save_flat_reg_path',
+                                        'image_type':'png',
+                                        'image_channels':(0,2),
+                                        'image_transform':transforms.Compose([transforms.ToTensor()]),
+                                        'target_col':'targetNumeric',
+                                        'unique_id_col':'save_h5_reg_path'} for split in ('train', 'test')},
+                 dataloader_kwargs={split:{'batch_size':128,
+                                           'shuffle':True,
+                                           'drop_last':True,
+                                           'num_workers':4,
+                                           'pin_memory':True} for split in ('train', 'test')}):
         """
         Args:
             df (pandas.DataFrame): dataframe containing the relative image locations and target data
@@ -94,13 +90,20 @@ class dataframeDataProvider(DataProviderABC):
         self.opts.pop('self')
         self.opts.pop('df')
         
-        # make sure unique id column is consistent across datasets and save
+        # make sure unique id and target columns are consistent across datasets and save
         uniq_id_cols = set([kwargs['unique_id_col'] for split,kwargs in dataset_kwargs.items()])
         assert len(uniq_id_cols) == 1, "unique id cols must be identical across datasets"
         self._unique_id_col = uniq_id_cols.pop()
+        target_cols = set([kwargs['target_col'] for split,kwargs in dataset_kwargs.items()])
+        assert len(target_cols) == 1, "target cols must be identical across datasets"
+        self._target_col = target_cols.pop()
  
         # split the data into the different sets: test, train, valid, whatever
-        self._split_inds = hashsplit(df[self._unique_id_col], splits=split_fracs, salt=split_seed)
+        # use dict of list of explicit inds if provided, otherwise split randomly
+        if all([isinstance(v,list) for k,v in split_fracs.items()]):
+            self._split_inds = split_fracs
+        else:
+            self._split_inds = hashsplit(df[self._unique_id_col], splits=split_fracs, salt=split_seed)
 
         # split dataframe by split inds
         dfs = {split:df.iloc[inds].reset_index(drop=True) for split,inds in self._split_inds.items()}
@@ -125,7 +128,7 @@ class dataframeDataProvider(DataProviderABC):
 
     @property
     def classes(self):
-        unique_classes = np.union1d(*[df_s[self.opts['target_col']].unique() for split,df_s in self.dfs.items()])
+        unique_classes = np.union1d(*[df_s[self._target_col].unique() for split,df_s in self.dfs.items()])
         unique_classes = np.append(unique_classes[~np.isnan(unique_classes)], np.nan) if np.any(np.isnan(unique_classes)) else unique_classes
         return unique_classes.tolist()
 
@@ -133,7 +136,5 @@ class dataframeDataProvider(DataProviderABC):
         split, ind = self._uids2splitsinds[unique_id]
         return self._datasets[split]._get_single_item(ind)    
         
-    def __getitem__(self, unique_ids):
-        unique_ids = [unique_ids] if not isinstance(unique_ids,list) else unique_ids
-        return collate_data([self._get_single_item(u) for u in unique_ids])
-
+    def __getitem__(self, uids):
+        return collate_data([self._get_single_item(u) for u in uids]) if isinstance(uids,list) else self._get_single_item(uids)
