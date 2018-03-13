@@ -18,7 +18,7 @@ class dataframeDatasetFeatures(Dataset):
 
     def __init__(self, df,
                  feat_col_pattern='feat_',
-                 target_col='structureProteinName',
+                 target_col='targetNumeric',
                  unique_id_col='save_h5_reg_path'):
         """
         Args:
@@ -61,7 +61,7 @@ class dataframeDatasetPIL(Dataset):
                  image_type='png',
                  image_channels=(0,1,2),
                  image_transform=transforms.Compose([transforms.ToTensor()]),
-                 target_col='structureProteinName',
+                 target_col='targetNumeric',
                  unique_id_col='save_h5_reg_path'):
         """
         Args:
@@ -102,12 +102,11 @@ class dataframeDatasetPIL(Dataset):
 class dataframeDatasetHDF5(Dataset):
     """HDF5 dataframe Dataset."""
 
-    def __init__(self,
-                 df,
+    def __init__(self, df,
                  image_root_dir='/root/aics/modeling/gregj/results/ipp/ipp_17_12_03/',
                  image_path_col='save_h5_reg_path',
                  image_channels=(3, 4, 2),
-                 target_col='structureProteinName',
+                 target_col='targetNumeric',
                  unique_id_col='save_h5_reg_path'):
         """
         Args:
@@ -146,7 +145,8 @@ class dataframeDataProvider(DataProviderABC):
                  dset_type=dataframeDatasetFeatures,
                  split_fracs={'train': 0.8, 'test': 0.2},
                  split_seed=1,
-                 dataset_kwargs={split:{'target_col':'targetNumeric',
+                 dataset_kwargs={split:{'feat_col_pattern'='feat_',
+                                        'target_col':'targetNumeric',
                                         'unique_id_col':'save_h5_reg_path'} for split in ('train', 'test')},
                  dataloader_kwargs={split:{'batch_size':128,
                                            'shuffle':True,
