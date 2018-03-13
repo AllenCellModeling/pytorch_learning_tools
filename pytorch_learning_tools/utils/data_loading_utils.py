@@ -23,3 +23,12 @@ def load_h5(h5_path, image_channels, *args, **kwargs):
     image = f['image'].value[image_channels, ::]
     image = eight_bit_to_float(image)
     return torch.from_numpy(image)
+
+def pick_image_loader(image_type):
+    if image_type in ['jpg','JPG','jpeg','JPEG','png','PNG','ppm','PPM','bmp','BMP']:
+        return load_rgb_img
+    elif image_type in ['tif', 'TIF', 'tiff', 'TIFF']:
+        return load_greyscale_tiff
+    else:
+        raise ValueError('image_type {} is not supported, only basic images'.format(image_type))
+
