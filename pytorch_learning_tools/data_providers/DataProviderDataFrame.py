@@ -189,7 +189,7 @@ class dataframeDataProvider(DataProviderABC):
         # load up all the datasets
         self._datasets = {split:dset_type(df_s, **dataset_kwargs[split]) for split,df_s in dfs.items()}
 
-        # save dfs as an accessable dict, and toal (concat) df in a hidden one
+        # save dfs as an accessable dict, and total (concat) df in a hidden one
         self.dfs = {split:dset.df for split,dset in self._datasets.items()}
         self._df = pd.concat([dset.df for dset in self._datasets.values()], ignore_index=True)
 
