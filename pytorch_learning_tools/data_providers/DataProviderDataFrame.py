@@ -33,10 +33,10 @@ class dataframeDatasetFeatures(Dataset):
 
         self.df = df.reset_index(drop=True)
 
-        feat_cols = df.columns[df.columns.str.contains(pat=feat_col_pattern)]
-        self._X = torch.from_numpy(df[feat_cols].values)
-        self._y = torch.from_numpy(df[target_col].values)
-        self._u = df[self.opts['unique_id_col']].values
+        feat_cols = self.df.columns[self.df.columns.str.contains(pat=feat_col_pattern)]
+        self._X = torch.from_numpy(self.df[feat_cols].values)
+        self._y = torch.from_numpy(self.df[target_col].values)
+        self._u = self.df[self.opts['unique_id_col']].values
 
     def __len__(self):
         return len(self.df)
