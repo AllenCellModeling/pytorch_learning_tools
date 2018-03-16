@@ -1,4 +1,6 @@
 import os
+from collections import Iterable
+
 import numpy as np
 import pandas as pd
 
@@ -135,7 +137,7 @@ class dataframeDatasetHDF5(Dataset):
         return (image,target,unique_id)
 
     def __getitem__(self, idx):
-        return collate([self._get_single_item(i) for i in idx]) if isinstance(idx,list) else self._get_single_item(idx)
+        return collate([self._get_single_item(i) for i in idx]) if (isinstance(idx, Iterable) and not isinstance(L, str)) else self._get_single_item(idx)
 
 
 # This is the dataframe-image dataprovider
@@ -209,4 +211,4 @@ class dataframeDataProvider(DataProviderABC):
         return self._datasets[split]._get_single_item(ind)
 
     def __getitem__(self, uids):
-        return collate([self._get_single_item(u) for u in uids]) if isinstance(uids,list) else self._get_single_item(uids)
+        return collate([self._get_single_item(u) for u in uids]) if (isinstance(idx, Iterable) and not isinstance(L, str)) else self._get_single_item(uids)
