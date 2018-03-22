@@ -11,8 +11,8 @@ def load_rgb_img(img_path, *args, **kwargs):
 
 def load_greyscale_tiff(img_path, *args, **kwargs):
     with open(img_path, 'rb') as f:
-        with Image.open(f) as img:
-            return img
+        img = Image.open(f)
+        return img.convert('L')
 
 def load_h5(h5_path, image_channels, *args, **kwargs):
     f = h5py.File(h5_path, 'r')
