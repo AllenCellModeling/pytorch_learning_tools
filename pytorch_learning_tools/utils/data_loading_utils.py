@@ -4,14 +4,10 @@ from PIL import Image
 import h5py
 from .data_utils import eight_bit_to_float
 
-def load_rgb_img(img_path, image_channels, *args, **kwargs):
+def load_rgb_img(img_path, *args, **kwargs):
     with open(img_path, 'rb') as f:
-        with Image.open(f) as img:
-            img_arr = np.array(img.convert('RGB'))
-            if image_channels is not (0,1,2):
-                zero_channels = [i for i in (0,1,2) if i not in image_channels]
-                img_arr[:,:,zero_channels] = 0
-            return Image.fromarray(img_arr, mode='RGB')
+        img = Image.open(f)
+        return img.convert('RGB')
 
 def load_greyscale_tiff(img_path, *args, **kwargs):
     with open(img_path, 'rb') as f:
@@ -31,4 +27,3 @@ def pick_image_loader(image_type):
         return load_greyscale_tiff
     else:
         raise ValueError('image_type {} is not supported, only basic images'.format(image_type))
-

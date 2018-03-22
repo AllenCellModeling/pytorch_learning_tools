@@ -35,3 +35,10 @@ def classes_and_weights(dp):
     weights = 1.0/abundances
     weights = weights/np.sum(weights)
     return torch.from_numpy(classes), torch.from_numpy(weights).type(torch.FloatTensor)
+
+def make_channel_mask(A, masked_channels=(0,1), channel_dim=0):
+    mask = torch.ones_like(A)
+    indices = {channel_dim: masked_channels}
+    ix = [indices.get(dim, slice(None)) for dim in range(len(A.shape))]
+    mask[ix] = 0
+    return mask

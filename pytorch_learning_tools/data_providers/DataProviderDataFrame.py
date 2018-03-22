@@ -59,7 +59,6 @@ class dataframeDatasetPIL(Dataset):
                  image_root_dir='/root/aics/modeling/gregj/results/ipp/ipp_17_12_03/',
                  image_path_col='save_flat_reg_path',
                  image_type='png',
-                 image_channels=(0,1,2),
                  image_transform=transforms.Compose([transforms.ToTensor()]),
                  target_col='targetNumeric',
                  unique_id_col='save_h5_reg_path'):
@@ -69,7 +68,6 @@ class dataframeDatasetPIL(Dataset):
             image_root_dir (string): full path to the directory containing all the images
             image_path_col (string): column name in dataframe containing the paths to the images to be used as input data.
             image_type (string): jpeg, png, greyscale tiff, etc (only basic image type support is implemented)
-            image_channels (tuple of integers): which channels in the input image do you want to keep as data
             image_transform (callable): torchvision transform to be applied on a sample, default is transforms.Compose([transforms.ToTensor()])
                                         to keep only the channels you want, add e.g. lambda x: x[(0,2),:,:] to the Compose
             target_col (string): column name in the dataframe containing the data to be used as prediction targets
@@ -89,7 +87,7 @@ class dataframeDatasetPIL(Dataset):
 
     def _get_single_item(self, idx):
         image_path = os.path.join(self.opts['image_root_dir'], self.df[self.opts['image_path_col']][idx])
-        image = self._trans(self._imgloader(image_path, self.opts['image_channels']))
+        image = self._trans(self._imgloader(image_path))
         target = torch.from_numpy(np.array([self.df[self.opts['target_col']][idx]]))
         unique_id = self.df[self.opts['unique_id_col']][idx]
         return (image, target, unique_id)
