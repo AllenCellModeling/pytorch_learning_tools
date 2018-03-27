@@ -10,9 +10,56 @@ from torchvision import transforms
 
 from ..utils.hashsplit import hashsplit
 from torch.utils.data.dataloader import default_collate as collate
-from ..utils.data_loading_utils import pick_image_loader, load_rgb_img, load_greyscale_tiff, load_h5
+from ..utils.data_loading_utils import pick_image_loader, load_rgb_img, load_greyscale_tiff, load_h5, loadAndAggregateImages
 from .DataProviderABC import DataProviderABC
 
+
+class dataframeDataset(Dataset):
+    """general dataframe Dataset class"""
+
+    def __init__(self, df,
+                 tabularData=['EnsemblID','proteinID','antibodyName','antigenSequence'],
+                 imageData={'input':{'cols':['microtubuleChannel', 'nuclearChannel'],
+                                     'mode':'L',
+                                     'aggregate':torch.stack,
+                                     'transform':transforms.Compose([])},
+                             'target':{'cols':['antibodyChannel'],
+                                       'mode':'L',
+                                       'aggregate':torch.stack,
+                                       'transform':transforms.Compose([])}}):
+        """
+        Args:
+            - df (pandas.DataFrame): dataframe containing tabular data and/or the absolute paths to image locations
+            - tabularData: list of column names in df whose entries will be returned for each data point.  Columns should contain either strings or numeric types convertable to torch rensors (int, np.float, etc)
+            - imageData: dict whose keys each specify the name of a returned image, and whose values specify how that image is loaded/constructed, via kewargs: 'cols', 'mode' 'transform', and 'aggregate'.
+                - 'cols' (list) specifies which columns in the df contain paths to images that will be transformed/aggregated to construct an output images
+                - 'mode' (string) specifies which mode PIL/Pillow load the image as, eg 'L' (greyscale), 'RGB', etc
+                - 'aggregate' (function) specifies how each individual tensor from the transformed images will be aggregated into one image tensor, e.g. torch.stack, torch.cat, etc
+                - 'transform' (function) specifies how aggregated image found in 'cols' will be transformed.
+                              mostly useful for one or three channel images using transforms.ToPILImage(), your transforms, and then transforms.ToTensor() inside transforms.Compose([])
+                              lambda transforms like transforms.Lambda(lambda x: mask*x) should work directly on tensors of any number of channels
+        """
+        self.opts = locals()
+        self.opts.pop('self')
+        self.opts.pop('df')
+        self.df = df.reset_index(drop=True)
+
+        default_kwargs = {'mode':'L', 'aggregate':torch.stack, 'transform':transforms.Compose([])}
+        for name,kwargs in self.opts['imageData'].items():
+            for k,v in default_kwargs.items():
+                if k not in kwargs:
+                    self.opts['imageData'][name][k] = v
+
+    def __len__(self):
+        return len(self.df)
+
+    def _get_item(self, idx):
+        images = {name:kw['transform'](loadAndAggregateImages(list(self.df.loc[idx,kw['cols']]), mode=kw['mode'], aggregate=kw['aggregate'])) for name,kw in self.opts['imageData'].items()}
+        tabular = {md_col:self.df[md_col][idx] for md_col in self.opts['tabularData']}
+        return {**images, **tabular}
+
+    def __getitem__(self, idx):
+        return collate([self._get_item(i) for i in idx]) if isinstance(idx,Iterable) else self._get_item(idx)
 
 # this is an augmentation to PyTorch's Dataset class that our Dataprovider below will use
 class dataframeDatasetFeatures(Dataset):

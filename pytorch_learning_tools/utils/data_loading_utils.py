@@ -27,3 +27,11 @@ def pick_image_loader(image_type):
         return load_greyscale_tiff
     else:
         raise ValueError('image_type {} is not supported, only basic images'.format(image_type))
+
+def loadAndAggregateImages(paths, mode='L', aggregate=torch.stack, *args, **kwargs):
+    image_tensors = []
+    for path in paths:
+        with open(path, 'rb') as f:
+            img = Image.open(f)
+            image_tensors += [transforms.ToTensor()(img.convert(mode))]
+    return aggregate(image_tensors).squeeze(dim=1)
