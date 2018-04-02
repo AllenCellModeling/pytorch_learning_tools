@@ -60,6 +60,7 @@ class DatasetFeatures(DataframeDataset):
         Xcols (list if strings): list of names of columns to merge together to construct featrue matrix
     """
     def __init__(self, df, ycol='yCol', Xcols=['Xcol1', 'Xcol2', 'Xcol3']):
+        """"""
         kwargs = locals()
         tabularData={'X':kwargs['target'],
                      'y':kwargs['target']},
@@ -75,6 +76,7 @@ class DatasetH5ToTarget(DataframeDataset):
         imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
     """
     def __init__(self, df, target='targetCol', image='h5FilePathCol', channels=(3,2,4), imageTransform=transforms.Compose([])):
+        """"""
         kwargs = locals()
         tabularData={'target':kwargs['target']},
         imageData={'image':{'cols':[kwargs['image']], 'loader':partial(loadH5images, channels=kwargs['channels']), 'transform':kwargs['imageTransform']}}
@@ -89,6 +91,7 @@ class DatasetSingleRGBImageToTarget(DataframeDataset):
         imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
     """
     def __init__(self, df, target='targetCol', image='imageFilePathCol', imageTransform=transforms.Compose([])):
+        """"""
         kwargs = locals()
         tabularData={'target':kwargs['target']}
         imageData={'image':{'cols':[kwargs['image']], 'loader':partial(loadPILImages, mode='RGB'), 'transform':kwargs['imageTransform']}}
@@ -103,6 +106,7 @@ class DatasetSingleGreyScaleImagetoTarget(DataframeDataset):
         imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
     """
     def __init__(self, df, target='targetCol', image='imageFilePathCol', imageTransform=transforms.Compose([])):
+        """"""
         kwargs = locals()
         tabularData={'target':kwargs['target']}
         imageData={'image':{'cols':[kwargs['image']], 'loader':partial(loadPILImages, mode='L'), 'transform':kwargs['imageTransform']}}
@@ -117,6 +121,7 @@ class DatasetMultipleGreyScaleImagestoTarget(DataframeDataset):
         imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
     """
     def __init__(self, df, target='targetCol', images=['imageFilePathCol1','imageFilePathCol2'], imageTransform=transforms.Compose([])):
+        """"""
         kwargs = locals()
         tabularData={'target':kwargs['target']}
         imageData={'image':{'cols':kwargs['images'], 'loader':partial(loadPILImages, mode='L'), 'transform':kwargs['imageTransform']}}
@@ -135,6 +140,7 @@ class DatasetHPA(DataframeDataset):
     """
     def __init__(self, df, seqCol='antigenSequence', metadatacols=['EnsemblID','proteinID','antibodyName'], inputImageCols =['microtubuleChannel', 'nuclearChannel'], targetImageCol='antibodyChannel',
                  inputImageTransform=transforms.Compose([]), targetImageTransform=transforms.Compose([])):
+        """"""
         kwargs = locals()
         tabularData={'sequence':kwargs['seqCol'], **dict(zip(metadatacols,metadatacols))}
         imageData={'inputImage':{'cols':kwargs['inputImageCols'], 'loader':partial(loadPILImages, mode='L'), 'transform':kwargs['inputImageTransform']},
