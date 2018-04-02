@@ -53,6 +53,12 @@ class DataframeDataset(Dataset):
         return collate([self._get_item(i) for i in idx]) if isinstance(idx,Iterable) else self._get_item(idx)
 
 class DatasetFeatures(DataframeDataset):
+    """
+    Args:
+        df (pandas.DataFrame): dataframe containing tabular data and/or the absolute paths to image locations
+        ycol (string): name of column containing target data
+        Xcols (list if strings): list of names of columns to merge together to construct featrue matrix
+    """
     def __init__(self, df, ycol='yCol', Xcols=['Xcol1', 'Xcol2', 'Xcol3']):
         kwargs = locals()
         tabularData={'X':kwargs['target'],
@@ -60,6 +66,14 @@ class DatasetFeatures(DataframeDataset):
         DataframeDataset.__init__(self, df, tabularData=tabularData, imageData={})
 
 class DatasetH5ToTarget(DataframeDataset):
+    """
+    Args:
+        df (pandas.DataFrame): dataframe containing tabular data and/or the absolute paths to image locations
+        target (string): name of column containing target data
+        image (string): name of column containing path to image
+        channels (tuple of ints): which channels in H5 image to keep
+        imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
+    """
     def __init__(self, df, target='targetCol', image='h5FilePathCol', channels=(3,2,4), imageTransform=transforms.Compose([])):
         kwargs = locals()
         tabularData={'target':kwargs['target']},
@@ -67,6 +81,13 @@ class DatasetH5ToTarget(DataframeDataset):
         DataframeDataset.__init__(self, df, tabularData=tabularData, imageData=imageData)
 
 class DatasetSingleRGBImageToTarget(DataframeDataset):
+    """
+    Args:
+        df (pandas.DataFrame): dataframe containing tabular data and/or the absolute paths to image locations
+        target (string): name of column containing target data
+        image (string): name of column containing path to image
+        imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
+    """
     def __init__(self, df, target='targetCol', image='imageFilePathCol', imageTransform=transforms.Compose([])):
         kwargs = locals()
         tabularData={'target':kwargs['target']}
@@ -74,6 +95,13 @@ class DatasetSingleRGBImageToTarget(DataframeDataset):
         DataframeDataset.__init__(self, df, tabularData=tabularData, imageData=imageData)
 
 class DatasetSingleGreyScaleImagetoTarget(DataframeDataset):
+    """
+    Args:
+        df (pandas.DataFrame): dataframe containing tabular data and/or the absolute paths to image locations
+        target (string): name of column containing target data
+        image (string): name of column containing path to image
+        imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
+    """
     def __init__(self, df, target='targetCol', image='imageFilePathCol', imageTransform=transforms.Compose([])):
         kwargs = locals()
         tabularData={'target':kwargs['target']}
@@ -81,6 +109,13 @@ class DatasetSingleGreyScaleImagetoTarget(DataframeDataset):
         DataframeDataset.__init__(self, df, tabularData=tabularData, imageData=imageData)
 
 class DatasetMultipleGreyScaleImagestoTarget(DataframeDataset):
+    """
+    Args:
+        df (pandas.DataFrame): dataframe containing tabular data and/or the absolute paths to image locations
+        target (string): name of column containing target data
+        images (list of strings): names of columns containing paths to images
+        imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
+    """
     def __init__(self, df, target='targetCol', images=['imageFilePathCol1','imageFilePathCol2'], imageTransform=transforms.Compose([])):
         kwargs = locals()
         tabularData={'target':kwargs['target']}
@@ -88,6 +123,16 @@ class DatasetMultipleGreyScaleImagestoTarget(DataframeDataset):
         DataframeDataset.__init__(self, df, tabularData=tabularData, imageData=imageData)
 
 class DatasetHPA(DataframeDataset):
+    """
+    Args:
+        df (pandas.DataFrame): dataframe containing tabular data and/or the absolute paths to image locations
+        seqCol (string): name of column containing AA sequence of datapoint
+        metadatacols (string): names of columns containing metadata to return with each datapoint
+        inputImageCols (string): names of columns containing paths to input image channels (will be stacked into one image)
+        targetImageCol (string): name of column containing path to target image (single channel)
+        inputImageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
+        targetImageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
+    """
     def __init__(self, df, seqCol='antigenSequence', metadatacols=['EnsemblID','proteinID','antibodyName'], inputImageCols =['microtubuleChannel', 'nuclearChannel'], targetImageCol='antibodyChannel',
                  inputImageTransform=transforms.Compose([]), targetImageTransform=transforms.Compose([])):
         kwargs = locals()
