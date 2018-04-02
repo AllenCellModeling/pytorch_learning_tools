@@ -9,6 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from torch.utils.data.dataloader import default_collate as collate
 
+from ..utils.data_loading_utils import loadPILImages, loadH5images
 
 class DataframeDataset(Dataset):
     """general dataframe Dataset class"""
