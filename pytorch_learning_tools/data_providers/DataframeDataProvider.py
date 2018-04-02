@@ -17,7 +17,7 @@ from ..utils.hashsplit import hashsplit
 class DataframeDataProvider(DataProviderABC):
     """PIL image dataframe dataprovider"""
     def __init__(self, df,
-                 datasetClass=DatasetDataframe,
+                 datasetClass=DataframeDataset,
                  split_fracs={'train': 0.8, 'test': 0.2},
                  split_seed=1,
                  uniqueID='uniqueID',
