@@ -28,10 +28,10 @@ def eight_bit_to_float(im, dtype=np.uint8):
     im = im / imax
     return im
 
-def classes_and_weights(dp):
+def classes_and_weights(dp, split='train', target_col='target'):
     """search through a dataprovider for unique target classes and return two lists:
        classes, weights. weights are inversely proportional to class abundances"""
-    classes, abundances = np.unique(dp._df[dp._target_col], return_counts=True)
+    classes, abundances = np.unique(dp.dfs[split][target_col], return_counts=True)
     weights = 1.0/abundances
     weights = weights/np.sum(weights)
     return torch.from_numpy(classes), torch.from_numpy(weights).type(torch.FloatTensor)
