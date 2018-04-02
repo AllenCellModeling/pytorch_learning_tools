@@ -1,4 +1,6 @@
 import torch
+from torchvision import transforms
+
 import numpy as np
 from PIL import Image
 import h5py
@@ -21,4 +23,3 @@ def loadH5images(paths, channels=(3,2,4), *args, **kwargs):
         image = eight_bit_to_float(image)
         tensors += [torch.from_numpy(image)]
     return tensors
-
