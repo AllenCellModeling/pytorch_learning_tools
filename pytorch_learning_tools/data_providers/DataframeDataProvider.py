@@ -78,4 +78,4 @@ class DataframeDataProvider(DataProviderABC):
         return self._datasets[split]._get_single_item(ind)
 
     def __getitem__(self, uids):
-        return collate([self._get_single_item(u) for u in uids]) if (isinstance(idx, Iterable) and not isinstance(L, str)) else self._get_single_item(uids)
+        return collate([self._get_single_item(u) for u in uids]) if (isinstance(uids, Iterable) and not isinstance(L, str)) else self._get_single_item(uids)
