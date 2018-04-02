@@ -73,9 +73,9 @@ class DataframeDataProvider(DataProviderABC):
     def splits(self):
         return self._split_inds
 
-    def _get_single_item(self, unique_id):
+    def _get_item(self, unique_id):
         split, ind = self._uids2splitsinds[unique_id]
-        return self._datasets[split]._get_single_item(ind)
+        return self._datasets[split]._get_item(ind)
 
     def __getitem__(self, uids):
-        return collate([self._get_single_item(u) for u in uids]) if (isinstance(uids, Iterable) and not isinstance(L, str)) else self._get_single_item(uids)
+        return collate([self._get_item(u) for u in uids]) if (isinstance(uids, Iterable) and not isinstance(L, str)) else self._get_item(uids)
