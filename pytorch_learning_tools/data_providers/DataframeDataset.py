@@ -44,7 +44,7 @@ class DataframeDataset(Dataset):
         return len(self.df)
 
     def _get_item(self, idx):
-        images = {name:kw['transform'](kw['aggregate'](kw['loader'](list(self.df.loc[idx,kw['cols']]))).squeeze(dim=1)) for name,kw in self.opts['imageData'].items()}
+        images = {name:kw['transform'](kw['aggregate'](kw['loader'](list(self.df.loc[idx,kw['cols']]))).squeeze()) for name,kw in self.opts['imageData'].items()}
         tabular = {name:self.df[cols].iloc[idx] for name,cols in self.opts['tabularData'].items()}
         tabular = {name:(torch.from_numpy(value.values) if isinstance(value, pd.Series) else value) for name,value in tabular.items()}
         return {**images, **tabular}
