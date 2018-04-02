@@ -10,6 +10,7 @@ from torchvision import transforms
 from torch.utils.data.dataloader import default_collate as collate
 
 from .DataProviderABC import DataProviderABC
+from .DataframeDataset import DataframeDataset
 from ..utils.hashsplit import hashsplit
 
 
