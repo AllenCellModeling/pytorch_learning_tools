@@ -97,6 +97,22 @@ class DatasetSingleRGBImageToTarget(DataframeDataset):
         imageData={'image':{'cols':[kwargs['image']], 'loader':partial(loadPILImages, mode='RGB'), 'transform':kwargs['imageTransform']}}
         DataframeDataset.__init__(self, df, tabularData=tabularData, imageData=imageData)
 
+class DatasetSingleRGBImageToTargetUniqueID(DataframeDataset):
+    """
+    Args:
+        df (pandas.DataFrame): dataframe containing tabular data and/or the absolute paths to image locations
+        target (string): name of column containing target data
+        image (string): name of column containing path to image
+        imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
+        uniqueID (string): name of column containing unique id data
+    """
+    def __init__(self, df, target='targetCol', image='imageFilePathCol', imageTransform=transforms.Compose([]), uniqueID='uniqueIDcol'):
+        """"""
+        kwargs = locals()
+        tabularData={'target':kwargs['target'], 'uniqueID':kwargs[uniqueID]}
+        imageData={'image':{'cols':[kwargs['image']], 'loader':partial(loadPILImages, mode='RGB'), 'transform':kwargs['imageTransform']}}
+        DataframeDataset.__init__(self, df, tabularData=tabularData, imageData=imageData)
+
 class DatasetSingleGreyScaleImagetoTarget(DataframeDataset):
     """
     Args:
