@@ -106,10 +106,10 @@ class DatasetSingleRGBImageToTargetUniqueID(DataframeDataset):
         imageTransform (torchvision.transform): transform to apply to image -- only works if img can be converted to PIL.Image
         uniqueID (string): name of column containing unique id data
     """
-    def __init__(self, df, target='targetCol', image='imageFilePathCol', imageTransform=transforms.Compose([]), uniqueID='uniqueIDcol'):
+    def __init__(self, df, target='targetCol', image='imageFilePathCol', uniqueID='uniqueIDcol', imageTransform=transforms.Compose([])):
         """"""
         kwargs = locals()
-        tabularData={'target':kwargs['target'], 'uniqueID':kwargs[uniqueID]}
+        tabularData={'target':kwargs['target'], 'uniqueID':kwargs['uniqueID']}
         imageData={'image':{'cols':[kwargs['image']], 'loader':partial(loadPILImages, mode='RGB'), 'transform':kwargs['imageTransform']}}
         DataframeDataset.__init__(self, df, tabularData=tabularData, imageData=imageData)
 
