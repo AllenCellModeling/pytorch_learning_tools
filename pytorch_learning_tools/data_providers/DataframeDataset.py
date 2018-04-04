@@ -50,7 +50,7 @@ class DataframeDataset(Dataset):
         return {**images, **tabular}
 
     def __getitem__(self, idx):
-        return collate([self._get_item(i) for i in idx]) if isinstance(idx,Iterable) else self._get_item(idx)
+        return collate([self._get_item(i) for i in idx]) if (isinstance(idx, Iterable) and not isinstance(idx, str)) else self._get_item(idx)
 
 class DatasetFeatures(DataframeDataset):
     """
