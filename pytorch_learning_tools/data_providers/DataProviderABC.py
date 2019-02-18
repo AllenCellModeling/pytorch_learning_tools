@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 
 class DataProviderABC(ABC):
 
-    # which inds belong to which splits?
+    # Which inds belong to which splits?
     @property
     @abstractmethod
     def splits(self):
