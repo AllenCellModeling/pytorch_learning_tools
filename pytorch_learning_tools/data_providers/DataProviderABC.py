@@ -8,15 +8,8 @@ class DataProviderABC(ABC):
     @abstractmethod
     def splits(self):
         pass
-    
-    # How many classes are we predicting?
-    @property
-    @abstractmethod
-    def classes(self):
-        pass
 
-    # Get data using unique ids
-    # Not how you want to iterate over data but useful for inspection
+    # get a single data point using unique id - not how you want to iterate over data but useful for inspection
     @abstractmethod
-    def get_data_points(self, unique_ids):
+    def __getitem__(self, unique_id):
         pass
