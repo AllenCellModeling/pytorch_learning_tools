@@ -25,7 +25,7 @@ class DataframeDataset(Dataset):
                          Columns should contain either strings or numeric types convertable to torch rensors (int, np.float, etc)
             imageData: dict whose keys each specify the name of a returned image, and whose values specify how that image is loaded/constructed, via kewargs: 'cols', 'mode' 'transform', and 'aggregate'.
                        'cols' (list) specifies which columns in the df contain paths to images that will be transformed/aggregated to construct an output images
-                       'mode' (string) specifies which mode PIL/Pillow load the image as, eg 'L' (greyscale), 'RGB', etc
+                       'loader' (function) a function that loads an image file and returns a tensor: eg partial(loadPILImages, mode='L')
                        'aggregate' (function) specifies how each individual tensor from the transformed images will be aggregated into one image tensor, e.g. torch.stack, torch.cat, etc
                        'transform' (function) specifies how aggregated image found in 'cols' will be transformed.
                            mostly useful for one or three channel images using transforms.ToPILImage(), your transforms, and then transforms.ToTensor() inside transforms.Compose([])
