@@ -21,9 +21,9 @@ class DataframeDataset(Dataset):
         Args:
             df (pandas.DataFrame): dataframe containing tabular data and/or the absolute paths to image locations
             tabularData: dict whos values are column names in df whose entries will be returned for each data point, the names when returned will be the keys of this dict.
-                         Groups of colum names can be used for a value (eg generating an 'X' matrix) but should only be used for groups of numeric columns, not strings
+                         Groups of column names can be used for a value (eg generating an 'X' matrix) but should only be used for groups of numeric columns, not strings
                          Columns should contain either strings or numeric types convertable to torch rensors (int, np.float, etc)
-            imageData: dict whose keys each specify the name of a returned image, and whose values specify how that image is loaded/constructed, via kewargs: 'cols', 'mode' 'transform', and 'aggregate'.
+            imageData: dict whose keys each specify the name of a returned image, and whose values specify how that image is loaded/constructed, via kwargs: 'cols', 'loader' 'transform', and 'aggregate'.
                        'cols' (list) specifies which columns in the df contain paths to images that will be transformed/aggregated to construct an output images
                        'loader' (function) a function that loads an image file and returns a tensor: eg partial(loadPILImages, mode='L')
                        'aggregate' (function) specifies how each individual tensor from the transformed images will be aggregated into one image tensor, e.g. torch.stack, torch.cat, etc

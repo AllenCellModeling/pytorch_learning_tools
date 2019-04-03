@@ -18,8 +18,8 @@ class DataframeDataProvider(DataProviderABC):
     """PIL image dataframe dataprovider"""
     def __init__(self, df,
                  datasetClass=DataframeDataset,
-                 split_fracs={'train': 0.8, 'test': 0.2},
-                 split_seed=1,
+                 split_fracs={'train': 0.6, 'valid': 0.2, 'test': 0.2},
+                 split_seed=0,
                  uniqueID='uniqueID',
                  dataset_kwargs={split:{'tabularData':{'outName1':'colName1', 'outName2':'colName2', 'uniqueID':'uniqueIDcol'},
                                         'imageData':{'image1':{'cols':['channel1colName', 'channel2colName']}, 'image2':{'cols':['RGBimagecolName']}}}
