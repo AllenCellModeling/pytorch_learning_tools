@@ -32,7 +32,7 @@ pytorch_learning_tools
 These are the modelling team's tools for making it less painful to develop,
 version, test, configure, monitor, etc simple pytorch-based machine learning tools.
 To get started using these components in your own software, please go to the
-.. _README: https://github.com/AllenCellModeling/pytorch_learning_tools/blob/master/README.md 
+.. _README: https://github.com/AllenCellModeling/pytorch_learning_tools/blob/master/README.md
 License
 =======
 ``pytorch_learning_tools`` is licensed under the terms of the MIT license. See the file
@@ -58,4 +58,4 @@ MINOR = _version_minor
 MICRO = _version_micro
 VERSION = __version__
 PACKAGE_DATA = {'pytorch_learning_tools': [pjoin('data', '*')]}
-REQUIRES = ["numpy", "scipy", "torch", "matplotlib", "Ipython", "natsort", "PIL", "h5py", "tqdm", "aicsimage"]
+REQUIRES = ["numpy", "scipy", "torch", "matplotlib", "Ipython", "natsort", "pillow", "h5py", "tqdm", "aicsimageio==0.6.4", "fire"]
